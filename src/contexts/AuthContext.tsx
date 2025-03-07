@@ -9,6 +9,8 @@ export type UserProfile = {
   email: string;
   full_name?: string;
   avatar_url?: string;
+  bio?: string;
+  location?: string;
   created_at: string;
 };
 
@@ -263,6 +265,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .update({
           full_name: data.full_name || user.full_name,
           avatar_url: data.avatar_url || user.avatar_url,
+          bio: data.bio,
+          location: data.location,
         })
         .eq('id', user.id);
       

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { BlurredCard } from '@/components/ui/BlurredCard';
 import AnimatedTransition from '@/components/AnimatedTransition';
@@ -6,17 +5,25 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, Edit } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
+import EditProfileForm from '@/components/EditProfileForm';
 
 const Profile = () => {
-  // Dati di esempio per il profilo
-  const profileData = {
-    name: 'Marco Rossi',
-    username: 'speedmaster',
-    avatar: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80',
-    joinDate: 'Maggio 2023',
+  const { user } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+
+  // In una vera app, queste informazioni verrebbero dal database
+  const userProfile = {
+    name: user?.full_name || user?.email?.split('@')[0] || 'Utente',
+    username: user?.email?.split('@')[0] || 'user',
+    avatar: user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.full_name || user?.email || 'User')}&background=random`,
+    joinDate: new Date(user?.created_at || Date.now()).toLocaleDateString('it-IT', { 
+      year: 'numeric', 
+      month: 'long' 
+    }),
     bio: 'Appassionato di auto sportive e strade panoramiche. Amo guidare sulle strade di montagna nei weekend.',
     location: 'Milano, Italia',
     badges: ['Premium', 'Road Master', 'Event Organizer'],
@@ -110,53 +117,75 @@ const Profile = () => {
     <AnimatedTransition>
       <div className="container mx-auto px-4 py-8">
         <BlurredCard className="max-w-4xl mx-auto p-6">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
-            <Avatar className="w-24 h-24">
-              <AvatarImage src={profileData.avatar} alt="Profile" />
-              <AvatarFallback className="text-2xl">MR</AvatarFallback>
-            </Avatar>
-            
-            <div className="flex-1 text-center md:text-left">
-              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-                <h1 className="text-3xl font-bold">{profileData.name}</h1>
-                <div className="flex flex-wrap gap-1 justify-center md:justify-start">
-                  {profileData.badges.map((badge, index) => (
-                    <Badge key={index} variant="outline" className="bg-primary/10 text-primary">
-                      {badge}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-              <p className="text-muted-foreground mt-1">@{profileData.username} · {profileData.location}</p>
-              <p className="text-muted-foreground">Membro da {profileData.joinDate}</p>
+          {isEditing ? (
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold mb-4">Modifica Profilo</h2>
+              <EditProfileForm 
+                onCancel={() => setIsEditing(false)}
+                initialData={{
+                  full_name: user?.full_name || '',
+                  bio: userProfile.bio,
+                  location: userProfile.location
+                }}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
+              <Avatar className="w-24 h-24">
+                <AvatarImage src={userProfile.avatar} alt="Profile" />
+                <AvatarFallback className="text-2xl">{(user?.full_name || user?.email || 'U').charAt(0)}</AvatarFallback>
+              </Avatar>
               
-              <p className="mt-3">{profileData.bio}</p>
-              
-              <div className="mt-4 flex justify-center md:justify-start gap-6">
-                <div className="text-center">
-                  <p className="font-bold">{profileData.stats.followers}</p>
-                  <p className="text-sm text-muted-foreground">Follower</p>
+              <div className="flex-1 text-center md:text-left">
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                  <h1 className="text-3xl font-bold">{userProfile.name}</h1>
+                  <div className="flex flex-wrap gap-1 justify-center md:justify-start">
+                    {userProfile.badges.map((badge, index) => (
+                      <Badge key={index} variant="outline" className="bg-primary/10 text-primary">
+                        {badge}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-                <div className="text-center">
-                  <p className="font-bold">{profileData.stats.following}</p>
-                  <p className="text-sm text-muted-foreground">Seguiti</p>
+                <p className="text-muted-foreground mt-1">@{userProfile.username} · {userProfile.location}</p>
+                <p className="text-muted-foreground">Membro da {userProfile.joinDate}</p>
+                
+                <p className="mt-3">{userProfile.bio}</p>
+                
+                <div className="mt-4 flex justify-center md:justify-start gap-6">
+                  <div className="text-center">
+                    <p className="font-bold">{userProfile.stats.followers}</p>
+                    <p className="text-sm text-muted-foreground">Follower</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-bold">{userProfile.stats.following}</p>
+                    <p className="text-sm text-muted-foreground">Seguiti</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-bold">{userProfile.stats.events}</p>
+                    <p className="text-sm text-muted-foreground">Eventi</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-bold">{userProfile.stats.roads}</p>
+                    <p className="text-sm text-muted-foreground">Strade</p>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <p className="font-bold">{profileData.stats.events}</p>
-                  <p className="text-sm text-muted-foreground">Eventi</p>
+                
+                <div className="mt-4 flex flex-wrap gap-2 justify-center md:justify-start">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setIsEditing(true)}
+                    className="flex items-center gap-1"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Modifica Profilo
+                  </Button>
+                  <Button variant="outline" size="sm">Impostazioni</Button>
                 </div>
-                <div className="text-center">
-                  <p className="font-bold">{profileData.stats.roads}</p>
-                  <p className="text-sm text-muted-foreground">Strade</p>
-                </div>
-              </div>
-              
-              <div className="mt-4 flex flex-wrap gap-2 justify-center md:justify-start">
-                <Button variant="outline" size="sm">Modifica Profilo</Button>
-                <Button variant="outline" size="sm">Impostazioni</Button>
               </div>
             </div>
-          </div>
+          )}
           
           <Tabs defaultValue="garage" className="w-full">
             <TabsList className="grid grid-cols-3 mb-6">
@@ -164,6 +193,7 @@ const Profile = () => {
               <TabsTrigger value="events">Eventi</TabsTrigger>
               <TabsTrigger value="roads">Valutazioni Strade</TabsTrigger>
             </TabsList>
+            
             
             <TabsContent value="garage" className="space-y-4">
               {cars.length > 0 ? (
