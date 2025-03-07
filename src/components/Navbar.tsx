@@ -10,13 +10,17 @@ import {
   Menu,
   X,
   LogIn,
+  LogOut,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { user, signOut } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -74,12 +78,31 @@ const Navbar = () => {
                 </Button>
               </Link>
             ))}
-            <Link to="/auth">
-              <Button variant="outline" className="ml-2 rounded-full px-4 flex items-center space-x-2">
-                <LogIn className="w-4 h-4" />
-                <span>Accedi</span>
-              </Button>
-            </Link>
+            
+            {user ? (
+              <div className="flex items-center space-x-2 ml-2">
+                <Link to="/profile">
+                  <Avatar className="cursor-pointer">
+                    <AvatarImage 
+                      src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || user.email)}`} 
+                      alt={user.full_name || user.email} 
+                    />
+                    <AvatarFallback>{user.full_name?.charAt(0) || user.email.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                </Link>
+                <Button variant="outline" className="rounded-full px-4 flex items-center space-x-2" onClick={() => signOut()}>
+                  <LogOut className="w-4 h-4" />
+                  <span>Esci</span>
+                </Button>
+              </div>
+            ) : (
+              <Link to="/auth">
+                <Button variant="outline" className="ml-2 rounded-full px-4 flex items-center space-x-2">
+                  <LogIn className="w-4 h-4" />
+                  <span>Accedi</span>
+                </Button>
+              </Link>
+            )}
           </nav>
 
           {/* Mobile menu button */}
@@ -120,14 +143,40 @@ const Navbar = () => {
                   <span className="text-lg">{link.name}</span>
                 </Link>
               ))}
-              <Link
-                to="/auth"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center space-x-3 px-4 py-3 w-full justify-center rounded-lg border border-racing-red text-racing-red hover:bg-racing-red/10 transition-all duration-300"
-              >
-                <LogIn className="w-5 h-5" />
-                <span className="text-lg">Accedi</span>
-              </Link>
+              
+              {user ? (
+                <>
+                  <div className="flex items-center space-x-3 w-full justify-center py-2">
+                    <Avatar>
+                      <AvatarImage 
+                        src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || user.email)}`} 
+                        alt={user.full_name || user.email} 
+                      />
+                      <AvatarFallback>{user.full_name?.charAt(0) || user.email.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-lg">{user.full_name || user.email}</span>
+                  </div>
+                  <Button
+                    className="flex items-center space-x-3 px-4 py-3 w-full justify-center rounded-lg border border-racing-red text-racing-red hover:bg-racing-red/10 transition-all duration-300"
+                    onClick={() => {
+                      signOut();
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <LogOut className="w-5 h-5" />
+                    <span className="text-lg">Esci</span>
+                  </Button>
+                </>
+              ) : (
+                <Link
+                  to="/auth"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center space-x-3 px-4 py-3 w-full justify-center rounded-lg border border-racing-red text-racing-red hover:bg-racing-red/10 transition-all duration-300"
+                >
+                  <LogIn className="w-5 h-5" />
+                  <span className="text-lg">Accedi</span>
+                </Link>
+              )}
             </nav>
           </motion.div>
         )}
