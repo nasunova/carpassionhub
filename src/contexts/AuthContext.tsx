@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, isSupabaseAvailable } from '@/lib/supabase';
@@ -102,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Supabase non è configurato correttamente.",
         variant: "destructive",
       });
-      return;
+      throw new Error("Supabase non è configurato correttamente.");
     }
     
     try {
@@ -118,11 +117,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       navigate('/garage');
     } catch (error: any) {
+      let errorMessage = "Si è verificato un errore durante il login.";
+      
+      if (error.message === "Invalid login credentials") {
+        errorMessage = "Credenziali non valide. Controlla email e password.";
+      }
+      
       toast({
         title: "Errore di login",
-        description: error.message || "Si è verificato un errore durante il login.",
+        description: errorMessage,
         variant: "destructive",
       });
+      
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -135,11 +142,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Supabase non è configurato correttamente.",
         variant: "destructive",
       });
-      return;
+      throw new Error("Supabase non è configurato correttamente.");
     }
     
     try {
       setLoading(true);
+      
+      // Controlla che la password sia valida
+      if (password.length < 6) {
+        throw new Error("La password deve contenere almeno 6 caratteri.");
+      }
+      
+      // Controlla che l'email sia valida
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error("L'indirizzo email non è valido.");
+      }
       
       // Registra l'utente
       const { data, error } = await supabase!.auth.signUp({
@@ -173,11 +191,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         navigate('/garage');
       }
     } catch (error: any) {
+      let errorMessage = "Si è verificato un errore durante la registrazione.";
+      
+      if (error.message.includes("weak_password")) {
+        errorMessage = "La password è troppo debole. Deve contenere almeno 6 caratteri.";
+      } else if (error.message.includes("email_address_invalid")) {
+        errorMessage = "L'indirizzo email non è valido.";
+      } else if (error.message.includes("User already registered")) {
+        errorMessage = "Questo indirizzo email è già registrato.";
+      }
+      
       toast({
         title: "Errore di registrazione",
-        description: error.message || "Si è verificato un errore durante la registrazione.",
+        description: errorMessage,
         variant: "destructive",
       });
+      
+      throw error;
     } finally {
       setLoading(false);
     }

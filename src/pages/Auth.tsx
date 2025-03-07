@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Auth = () => {
   const { user, loading, signIn, signUp } = useAuth();
@@ -29,6 +30,8 @@ const Auth = () => {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [passwordsMatch, setPasswordsMatch] = useState(true);
+  const [registrationError, setRegistrationError] = useState('');
+  const [loginError, setLoginError] = useState('');
   
   // Redirect if already logged in
   useEffect(() => {
@@ -43,6 +46,7 @@ const Auth = () => {
       ...prev,
       [id === 'login-email' ? 'email' : 'password']: value
     }));
+    setLoginError('');
   };
   
   const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,6 +63,8 @@ const Auth = () => {
       const confirmPwd = id === 'confirm-password' ? value : registerData.confirmPassword;
       setPasswordsMatch(pwd === confirmPwd || confirmPwd === '');
     }
+    
+    setRegistrationError('');
   };
   
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -66,25 +72,65 @@ const Auth = () => {
     if (isSubmitting) return;
     
     setIsSubmitting(true);
+    setLoginError('');
+    
     try {
       await signIn(loginData.email, loginData.password);
+    } catch (error: any) {
+      setLoginError(error.message || 'Errore durante l\'accesso. Riprova più tardi.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+  
+  const validatePassword = (password: string) => {
+    if (password.length < 6) {
+      return 'La password deve contenere almeno 6 caratteri.';
+    }
+    return '';
+  };
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return 'L\'indirizzo email non è valido.';
+    }
+    return '';
   };
   
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
     
+    // Reset errors
+    setRegistrationError('');
+    
+    // Validate passwords match
     if (registerData.password !== registerData.confirmPassword) {
       setPasswordsMatch(false);
+      setRegistrationError('Le password non coincidono.');
+      return;
+    }
+    
+    // Validate password length
+    const passwordError = validatePassword(registerData.password);
+    if (passwordError) {
+      setRegistrationError(passwordError);
+      return;
+    }
+    
+    // Validate email format
+    const emailError = validateEmail(registerData.email);
+    if (emailError) {
+      setRegistrationError(emailError);
       return;
     }
     
     setIsSubmitting(true);
     try {
       await signUp(registerData.email, registerData.password, registerData.name);
+    } catch (error: any) {
+      setRegistrationError(error.message || 'Errore durante la registrazione. Riprova più tardi.');
     } finally {
       setIsSubmitting(false);
     }
@@ -120,6 +166,13 @@ const Auth = () => {
               
               <TabsContent value="login">
                 <form onSubmit={handleLoginSubmit} className="space-y-4">
+                  {loginError && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{loginError}</AlertDescription>
+                    </Alert>
+                  )}
+                  
                   <div className="space-y-2">
                     <Label htmlFor="login-email">Email</Label>
                     <Input 
@@ -156,6 +209,13 @@ const Auth = () => {
               
               <TabsContent value="register">
                 <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                  {registrationError && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{registrationError}</AlertDescription>
+                    </Alert>
+                  )}
+                  
                   <div className="space-y-2">
                     <Label htmlFor="name">Nome Completo</Label>
                     <Input 
@@ -188,6 +248,9 @@ const Auth = () => {
                       onChange={handleRegisterChange}
                       required 
                     />
+                    <p className="text-xs text-muted-foreground">
+                      La password deve contenere almeno 6 caratteri.
+                    </p>
                   </div>
                   
                   <div className="space-y-2">
