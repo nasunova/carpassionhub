@@ -2,7 +2,7 @@
 import React from 'react';
 import { BlurredCard } from '@/components/ui/BlurredCard';
 import AnimatedTransition from '@/components/AnimatedTransition';
-import { MapView } from '@/components/MapView';
+import MapView from '@/components/MapView';
 
 const Roads = () => {
   return (
