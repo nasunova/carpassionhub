@@ -1,102 +1,77 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import CarCard, { Car } from "@/components/CarCard";
 import { BlurredCard } from "@/components/ui/BlurredCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, Plus } from "lucide-react";
 import AnimatedTransition from "@/components/AnimatedTransition";
-
-// Mock data
-const mockCars: Car[] = [
-  {
-    id: "1",
-    make: "Porsche",
-    model: "911 GT3",
-    year: 2021,
-    image: "https://images.unsplash.com/photo-1614162692292-7ac56d7f371e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80",
-    description: "La nuova Porsche 911 GT3 è una sportiva ad alte prestazioni che porta la tecnologia delle corse su strada. Con il suo motore boxer aspirato da 510 CV, offre un'esperienza di guida pura e coinvolgente.",
-    ownerName: "Mario Rossi",
-    ownerAvatar: "https://randomuser.me/api/portraits/men/32.jpg",
-    likes: 124,
-    comments: 15,
-  },
-  {
-    id: "2",
-    make: "Ferrari",
-    model: "F8 Tributo",
-    year: 2020,
-    image: "https://images.unsplash.com/photo-1583121274602-3e2820c69888?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80",
-    description: "La Ferrari F8 Tributo è un omaggio all'eccellenza tecnica dell'azienda. Con il suo motore V8 biturbo da 720 CV, rappresenta un nuovo standard per le supercar con motore centrale.",
-    ownerName: "Giulia Bianchi",
-    ownerAvatar: "https://randomuser.me/api/portraits/women/44.jpg",
-    likes: 156,
-    comments: 23,
-  },
-  {
-    id: "3",
-    make: "Lamborghini",
-    model: "Huracán EVO",
-    year: 2021,
-    image: "https://images.unsplash.com/photo-1580274455191-1c62238fa333?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2068&q=80",
-    description: "La Lamborghini Huracán EVO rappresenta l'evoluzione della supersportiva V10 di Sant'Agata Bolognese. Con 640 CV e una dinamica di guida rivoluzionaria, offre prestazioni mozzafiato.",
-    ownerName: "Luca Verdi",
-    ownerAvatar: "https://randomuser.me/api/portraits/men/67.jpg",
-    likes: 98,
-    comments: 12,
-  },
-  {
-    id: "4",
-    make: "Aston Martin",
-    model: "Vantage",
-    year: 2022,
-    image: "https://images.unsplash.com/photo-1554744512-d6c603f27c54?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80",
-    description: "L'Aston Martin Vantage combina eleganza britannica e prestazioni sportive. Il suo motore V8 biturbo da 4.0 litri fornisce 510 CV di potenza, garantendo un'esperienza di guida agile e reattiva.",
-    ownerName: "Francesca Neri",
-    ownerAvatar: "https://randomuser.me/api/portraits/women/22.jpg",
-    likes: 87,
-    comments: 9,
-  },
-  {
-    id: "5",
-    make: "BMW",
-    model: "M4 Competition",
-    year: 2021,
-    image: "https://images.unsplash.com/photo-1607603750941-d57c9832f197?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2071&q=80",
-    description: "La BMW M4 Competition rappresenta l'apice della sportività del marchio tedesco. Con 510 CV e un'estetica aggressiva, offre prestazioni da supercar abbinate al comfort di una coupé premium.",
-    ownerName: "Marco Esposito",
-    ownerAvatar: "https://randomuser.me/api/portraits/men/54.jpg",
-    likes: 112,
-    comments: 18,
-  },
-  {
-    id: "6",
-    make: "Alfa Romeo",
-    model: "Giulia Quadrifoglio",
-    year: 2022,
-    image: "https://images.unsplash.com/photo-1560861845-2b8c09fa5518?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2071&q=80",
-    description: "L'Alfa Romeo Giulia Quadrifoglio è una berlina sportiva che incarna la passione italiana per le auto. Il suo motore V6 biturbo da 2.9 litri eroga 510 CV, permettendole di competere con le migliori sportive tedesche.",
-    ownerName: "Sofia Romano",
-    ownerAvatar: "https://randomuser.me/api/portraits/women/33.jpg",
-    likes: 95,
-    comments: 14,
-  },
-];
+import AddCarModal from "@/components/AddCarModal";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 const Garage = () => {
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredCars, setFilteredCars] = useState<Car[]>(mockCars);
+  const [cars, setCars] = useState<Car[]>([]);
+  const [filteredCars, setFilteredCars] = useState<Car[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  // Fetch cars from Supabase
+  useEffect(() => {
+    const fetchCars = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("cars")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        if (data) {
+          // Transform database records to Car objects
+          const formattedCars: Car[] = data.map((car) => ({
+            id: car.id,
+            make: car.make,
+            model: car.model,
+            year: car.year,
+            image: car.image,
+            description: car.description || "",
+            ownerName: car.owner_name,
+            ownerAvatar: car.owner_avatar,
+            likes: car.likes_count || 0,
+            comments: car.comments_count || 0,
+          }));
+
+          setCars(formattedCars);
+          setFilteredCars(formattedCars);
+        }
+      } catch (error) {
+        console.error("Error fetching cars:", error);
+        toast({
+          title: "Errore",
+          description: "Si è verificato un errore durante il caricamento delle auto.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCars();
+  }, [toast]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value.toLowerCase();
     setSearchTerm(term);
     
     if (!term) {
-      setFilteredCars(mockCars);
+      setFilteredCars(cars);
       return;
     }
     
-    const filtered = mockCars.filter(
+    const filtered = cars.filter(
       car => 
         car.make.toLowerCase().includes(term) || 
         car.model.toLowerCase().includes(term) ||
@@ -105,6 +80,11 @@ const Garage = () => {
     );
     
     setFilteredCars(filtered);
+  };
+
+  const handleAddCar = (newCar: Car) => {
+    setCars((prevCars) => [newCar, ...prevCars]);
+    setFilteredCars((prevFiltered) => [newCar, ...prevFiltered]);
   };
 
   return (
@@ -134,7 +114,10 @@ const Garage = () => {
                 <Filter className="mr-2 h-4 w-4" />
                 Filtri
               </Button>
-              <Button className="flex items-center bg-racing-red hover:bg-racing-red/90">
+              <Button 
+                className="flex items-center bg-racing-red hover:bg-racing-red/90"
+                onClick={() => setShowAddModal(true)}
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 Aggiungi Auto
               </Button>
@@ -142,12 +125,26 @@ const Garage = () => {
           </div>
         </BlurredCard>
         
-        {filteredCars.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-16">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+            <p className="mt-4 text-muted-foreground">Caricamento auto...</p>
+          </div>
+        ) : filteredCars.length === 0 ? (
           <div className="text-center py-16">
             <h3 className="text-2xl font-semibold mb-2">Nessun risultato trovato</h3>
             <p className="text-muted-foreground">
-              Prova a cercare con altri termini o aggiungi la tua auto.
+              {cars.length === 0 
+                ? "Il garage è vuoto. Aggiungi la tua prima auto!"
+                : "Prova a cercare con altri termini o aggiungi la tua auto."}
             </p>
+            <Button 
+              className="mt-6 bg-racing-red hover:bg-racing-red/90"
+              onClick={() => setShowAddModal(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Aggiungi Auto
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -157,6 +154,13 @@ const Garage = () => {
           </div>
         )}
       </div>
+
+      {/* Add Car Modal */}
+      <AddCarModal 
+        isOpen={showAddModal} 
+        onClose={() => setShowAddModal(false)} 
+        onCarAdded={handleAddCar}
+      />
     </AnimatedTransition>
   );
 };

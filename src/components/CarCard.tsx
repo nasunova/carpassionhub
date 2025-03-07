@@ -1,9 +1,11 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BlurredCard } from "./ui/BlurredCard";
 import { Button } from "@/components/ui/button";
 import { Heart, Share2, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 export interface Car {
   id: string;
@@ -23,16 +25,72 @@ interface CarCardProps {
 }
 
 const CarCard = ({ car }: CarCardProps) => {
+  const { toast } = useToast();
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(car.likes);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  const handleLike = () => {
-    if (liked) {
-      setLikes(likes - 1);
-    } else {
-      setLikes(likes + 1);
+  // Check if current user has liked this car
+  useEffect(() => {
+    const checkIfLiked = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        setCurrentUserId(user.id);
+        
+        // Check if the user has already liked this car
+        const { data } = await supabase
+          .from("car_likes")
+          .select("*")
+          .eq("car_id", car.id)
+          .eq("user_id", user.id)
+          .single();
+        
+        if (data) {
+          setLiked(true);
+        }
+      }
+    };
+    
+    checkIfLiked();
+  }, [car.id]);
+
+  const handleLike = async () => {
+    if (!currentUserId) {
+      toast({
+        title: "Accesso richiesto",
+        description: "Devi fare login per aggiungere un like.",
+      });
+      return;
     }
-    setLiked(!liked);
+    
+    try {
+      if (liked) {
+        // Unlike
+        await supabase
+          .from("car_likes")
+          .delete()
+          .eq("car_id", car.id)
+          .eq("user_id", currentUserId);
+          
+        setLikes(likes - 1);
+      } else {
+        // Like
+        await supabase
+          .from("car_likes")
+          .insert([{ car_id: car.id, user_id: currentUserId }]);
+          
+        setLikes(likes + 1);
+      }
+      setLiked(!liked);
+    } catch (error) {
+      console.error("Error updating like:", error);
+      toast({
+        title: "Errore",
+        description: "Si è verificato un errore durante l'aggiornamento del like.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
