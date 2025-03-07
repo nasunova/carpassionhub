@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, isSupabaseAvailable } from '@/lib/supabase';
@@ -167,6 +168,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data: {
             full_name: fullName,
           },
+          // Rimuovo l'email verification disabilitandola
+          emailRedirectTo: undefined,
         },
       });
       
@@ -182,6 +185,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: email,
           },
         ]);
+        
+        // Effettua il login automaticamente dopo la registrazione
+        await supabase!.auth.signInWithPassword({
+          email,
+          password
+        });
         
         toast({
           title: "Registrazione completata",

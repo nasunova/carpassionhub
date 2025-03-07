@@ -10,7 +10,14 @@ const isSupabaseConfigured = supabaseUrl && supabaseAnonKey;
 
 // Create client only if properly configured
 export const supabase = isSupabaseConfigured 
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        // Disabilita la verifica dell'email
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false
+      }
+    })
   : null;
 
 // Helper function to check if Supabase is configured
