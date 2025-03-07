@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { BlurredCard } from "./ui/BlurredCard";
 import { Button } from "@/components/ui/button";
 import { Heart, Share2, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseAvailable } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
 export interface Car {
@@ -33,22 +32,28 @@ const CarCard = ({ car }: CarCardProps) => {
   // Check if current user has liked this car
   useEffect(() => {
     const checkIfLiked = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      if (!isSupabaseAvailable()) return;
       
-      if (user) {
-        setCurrentUserId(user.id);
+      try {
+        const { data: { user } } = await supabase!.auth.getUser();
         
-        // Check if the user has already liked this car
-        const { data } = await supabase
-          .from("car_likes")
-          .select("*")
-          .eq("car_id", car.id)
-          .eq("user_id", user.id)
-          .single();
-        
-        if (data) {
-          setLiked(true);
+        if (user) {
+          setCurrentUserId(user.id);
+          
+          // Check if the user has already liked this car
+          const { data } = await supabase!
+            .from("car_likes")
+            .select("*")
+            .eq("car_id", car.id)
+            .eq("user_id", user.id)
+            .single();
+          
+          if (data) {
+            setLiked(true);
+          }
         }
+      } catch (error) {
+        console.error("Error checking like status:", error);
       }
     };
     
@@ -56,6 +61,15 @@ const CarCard = ({ car }: CarCardProps) => {
   }, [car.id]);
 
   const handleLike = async () => {
+    if (!isSupabaseAvailable()) {
+      toast({
+        title: "Configurazione mancante",
+        description: "L'accesso a Supabase non è configurato correttamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (!currentUserId) {
       toast({
         title: "Accesso richiesto",
@@ -67,7 +81,7 @@ const CarCard = ({ car }: CarCardProps) => {
     try {
       if (liked) {
         // Unlike
-        await supabase
+        await supabase!
           .from("car_likes")
           .delete()
           .eq("car_id", car.id)
@@ -76,7 +90,7 @@ const CarCard = ({ car }: CarCardProps) => {
         setLikes(likes - 1);
       } else {
         // Like
-        await supabase
+        await supabase!
           .from("car_likes")
           .insert([{ car_id: car.id, user_id: currentUserId }]);
           

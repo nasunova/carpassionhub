@@ -1,13 +1,12 @@
-
 import { useState, useEffect } from "react";
 import CarCard, { Car } from "@/components/CarCard";
 import { BlurredCard } from "@/components/ui/BlurredCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, Plus } from "lucide-react";
+import { Search, Filter, Plus, AlertTriangle } from "lucide-react";
 import AnimatedTransition from "@/components/AnimatedTransition";
 import AddCarModal from "@/components/AddCarModal";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseAvailable } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
 const Garage = () => {
@@ -17,12 +16,19 @@ const Garage = () => {
   const [filteredCars, setFilteredCars] = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [supabaseError, setSupabaseError] = useState(!isSupabaseAvailable());
 
   // Fetch cars from Supabase
   useEffect(() => {
     const fetchCars = async () => {
       try {
-        const { data, error } = await supabase
+        if (!isSupabaseAvailable()) {
+          setSupabaseError(true);
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase!
           .from("cars")
           .select("*")
           .order("created_at", { ascending: false });
@@ -86,6 +92,33 @@ const Garage = () => {
     setCars((prevCars) => [newCar, ...prevCars]);
     setFilteredCars((prevFiltered) => [newCar, ...prevFiltered]);
   };
+
+  if (supabaseError) {
+    return (
+      <AnimatedTransition>
+        <div className="container mx-auto px-6 py-12">
+          <div className="mb-12">
+            <h1 className="text-4xl font-bold mb-4">Garage Virtuale</h1>
+            <p className="text-xl text-muted-foreground max-w-3xl">
+              Esplora le auto della nostra community. Scopri modelli unici, storie interessanti e connettiti con altri appassionati.
+            </p>
+          </div>
+          
+          <BlurredCard className="p-8 text-center">
+            <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold mb-2">Configurazione Supabase mancante</h2>
+            <p className="text-muted-foreground mb-4">
+              Le variabili d'ambiente per Supabase non sono configurate correttamente.
+              Assicurati di aver impostato <code>VITE_SUPABASE_URL</code> e <code>VITE_SUPABASE_ANON_KEY</code>.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Per ulteriori informazioni, consulta la documentazione di Supabase sull'integrazione con le applicazioni React.
+            </p>
+          </BlurredCard>
+        </div>
+      </AnimatedTransition>
+    );
+  }
 
   return (
     <AnimatedTransition>

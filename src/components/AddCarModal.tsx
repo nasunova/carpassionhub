@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -6,9 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseAvailable } from "@/lib/supabase";
 import { Car } from "@/components/CarCard";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 
 interface AddCarModalProps {
   isOpen: boolean;
@@ -38,6 +37,15 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!isSupabaseAvailable()) {
+      toast({
+        title: "Configurazione mancante",
+        description: "L'accesso a Supabase non è configurato correttamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (!carData.make || !carData.model || !carData.image) {
       toast({
         title: "Campi mancanti",
@@ -51,7 +59,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
 
     try {
       // Get user info
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase!.auth.getUser();
       
       if (!user) {
         toast({
@@ -64,7 +72,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
       }
 
       // Insert car into database
-      const { data, error } = await supabase
+      const { data, error } = await supabase!
         .from("cars")
         .insert([
           {
@@ -125,93 +133,104 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
             Inserisci i dettagli della tua auto per aggiungerla al tuo garage virtuale.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="make" className="text-right">
-                Marca*
-              </Label>
-              <Input
-                id="make"
-                name="make"
-                value={carData.make}
-                onChange={handleInputChange}
-                className="col-span-3"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="model" className="text-right">
-                Modello*
-              </Label>
-              <Input
-                id="model"
-                name="model"
-                value={carData.model}
-                onChange={handleInputChange}
-                className="col-span-3"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="year" className="text-right">
-                Anno
-              </Label>
-              <Input
-                id="year"
-                name="year"
-                type="number"
-                value={carData.year}
-                onChange={handleInputChange}
-                className="col-span-3"
-                min="1900"
-                max={new Date().getFullYear() + 1}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="image" className="text-right">
-                URL Immagine*
-              </Label>
-              <Input
-                id="image"
-                name="image"
-                value={carData.image}
-                onChange={handleInputChange}
-                className="col-span-3"
-                placeholder="https://esempio.com/immagine.jpg"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
-                Descrizione
-              </Label>
-              <Textarea
-                id="description"
-                name="description"
-                value={carData.description}
-                onChange={handleInputChange}
-                className="col-span-3"
-                rows={3}
-              />
-            </div>
+        
+        {!isSupabaseAvailable() ? (
+          <div className="py-4 text-center">
+            <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
+            <h3 className="font-medium mb-2">Configurazione Supabase mancante</h3>
+            <p className="text-sm text-muted-foreground">
+              Le variabili d'ambiente per Supabase non sono configurate correttamente.
+            </p>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Annulla
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Salvataggio...
-                </>
-              ) : (
-                "Aggiungi Auto"
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="make" className="text-right">
+                  Marca*
+                </Label>
+                <Input
+                  id="make"
+                  name="make"
+                  value={carData.make}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="model" className="text-right">
+                  Modello*
+                </Label>
+                <Input
+                  id="model"
+                  name="model"
+                  value={carData.model}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="year" className="text-right">
+                  Anno
+                </Label>
+                <Input
+                  id="year"
+                  name="year"
+                  type="number"
+                  value={carData.year}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  min="1900"
+                  max={new Date().getFullYear() + 1}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="image" className="text-right">
+                  URL Immagine*
+                </Label>
+                <Input
+                  id="image"
+                  name="image"
+                  value={carData.image}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  placeholder="https://esempio.com/immagine.jpg"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="description" className="text-right">
+                  Descrizione
+                </Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  value={carData.description}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Annulla
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvataggio...
+                  </>
+                ) : (
+                  "Aggiungi Auto"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );
