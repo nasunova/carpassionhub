@@ -35,13 +35,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Controlla se l'utente è già autenticato
+    // Force a timeout to prevent indefinite loading state
+    const loadingTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
+    // Check if the user is already authenticated
     const checkUser = async () => {
+      console.info("Controllo stato autenticazione iniziale...");
       try {
         const { data: { user } } = await supabase!.auth.getUser();
         
         if (user) {
-          // Ottieni i dati del profilo
+          // Get profile data
           const { data: profile } = await supabase!
             .from('profiles')
             .select('*')
@@ -57,17 +63,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
         }
       } catch (error) {
-        console.error('Errore nel controllo dell\'utente:', error);
+        console.error('Error checking user:', error);
       } finally {
         setLoading(false);
+        clearTimeout(loadingTimeout);
       }
     };
 
-    // Configura il listener per i cambiamenti di autenticazione
+    // Set up the listener for authentication changes
+    console.info("Configurazione listener cambiamenti autenticazione");
     const { data: { subscription } } = supabase!.auth.onAuthStateChange(
       async (event, session) => {
+        console.info("Auth state changed:", event, session?.user?.id);
         if (session && session.user) {
-          // Ottieni i dati del profilo
+          // Get profile data
           const { data: profile } = await supabase!
             .from('profiles')
             .select('*')
@@ -85,6 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
         }
         setLoading(false);
+        clearTimeout(loadingTimeout);
       }
     );
 
@@ -92,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       subscription.unsubscribe();
+      clearTimeout(loadingTimeout);
     };
   }, []);
 
@@ -296,7 +307,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth deve essere usato all\'interno di un AuthProvider');
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };

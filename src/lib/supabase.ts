@@ -12,7 +12,6 @@ const isSupabaseConfigured = supabaseUrl && supabaseAnonKey;
 export const supabase = isSupabaseConfigured 
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        // Disabilita la verifica dell'email
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false
@@ -23,46 +22,64 @@ export const supabase = isSupabaseConfigured
 // Helper function to check if Supabase is configured
 export const isSupabaseAvailable = () => !!isSupabaseConfigured;
 
-// Funzione per configurare la tabella profiles
-export const setupProfilesTable = async () => {
+// Function to check if a table exists
+const checkTableExists = async (tableName: string) => {
   if (!isSupabaseConfigured || !supabase) {
-    console.error('Supabase non è configurato correttamente');
+    console.error('Supabase not configured correctly');
     return false;
   }
 
   try {
-    // Verifica se la tabella profiles esiste già
-    const { data: existingTables, error: queryError } = await supabase
+    const { data, error } = await supabase
       .from('information_schema.tables')
       .select('table_name')
       .eq('table_schema', 'public')
-      .eq('table_name', 'profiles');
+      .eq('table_name', tableName)
+      .maybeSingle();
 
-    if (queryError) {
-      console.error('Errore nella verifica della tabella profiles:', queryError);
+    if (error) {
+      console.error(`Error checking if table ${tableName} exists:`, error);
       return false;
     }
 
-    // Se la tabella non esiste, creala
-    if (!existingTables || existingTables.length === 0) {
-      console.log('Creazione tabella profiles...');
+    return !!data;
+  } catch (error) {
+    console.error(`Error checking if table ${tableName} exists:`, error);
+    return false;
+  }
+};
+
+// Function to set up the profiles table
+export const setupProfilesTable = async () => {
+  if (!isSupabaseConfigured || !supabase) {
+    console.error('Supabase not configured correctly');
+    return false;
+  }
+
+  try {
+    // Check if the profiles table already exists
+    const tableExists = await checkTableExists('profiles');
+
+    // If the table doesn't exist, create it
+    if (!tableExists) {
+      console.log('Creating profiles table...');
       
-      // Prima crea la tabella profiles
+      // Create the profiles table
       const { error: createTableError } = await supabase.rpc('create_profiles_table_if_not_exists');
       
       if (createTableError) {
-        console.error('Errore nella creazione della tabella profiles:', createTableError);
+        console.error('Error creating profiles table:', createTableError);
         return false;
       }
       
-      console.log('Tabella profiles creata con successo');
+      console.log('Profiles table created successfully');
     } else {
-      console.log('La tabella profiles esiste già');
+      console.log('Profiles table already exists');
     }
     
     return true;
   } catch (error) {
-    console.error('Errore nella configurazione della tabella profiles:', error);
+    console.error('Error setting up profiles table:', error);
     return false;
   }
 };

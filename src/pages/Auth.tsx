@@ -9,8 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCcw } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from '@/hooks/use-toast';
 
 const Auth = () => {
   const { user, loading, signIn, signUp } = useAuth();
@@ -32,6 +33,18 @@ const Auth = () => {
   const [passwordsMatch, setPasswordsMatch] = useState(true);
   const [registrationError, setRegistrationError] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [forceReady, setForceReady] = useState(false);
+  
+  // Force the page to become interactive after a timeout
+  useEffect(() => {
+    console.info("Auth page - setting up timeout to force ready state");
+    const timeout = setTimeout(() => {
+      console.info("Auth page - forcing ready state after timeout");
+      setForceReady(true);
+    }, 3000);
+    
+    return () => clearTimeout(timeout);
+  }, []);
   
   // Redirect if already logged in
   useEffect(() => {
@@ -76,6 +89,7 @@ const Auth = () => {
     
     try {
       await signIn(loginData.email, loginData.password);
+      // No need for navigation here as the AuthContext will handle it
     } catch (error: any) {
       setLoginError(error.message || 'Errore durante l\'accesso. Riprova più tardi.');
     } finally {
@@ -129,6 +143,7 @@ const Auth = () => {
     setIsSubmitting(true);
     try {
       await signUp(registerData.email, registerData.password, registerData.name);
+      // No need for navigation here as the AuthContext will handle it
     } catch (error: any) {
       setRegistrationError(error.message || 'Errore durante la registrazione. Riprova più tardi.');
     } finally {
@@ -136,12 +151,25 @@ const Auth = () => {
     }
   };
   
-  if (loading) {
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+  
+  // Show a refresh button if loading takes too long
+  if (loading && !forceReady) {
     return (
       <div className="container mx-auto px-4 py-12 flex justify-center items-center min-h-[80vh]">
         <div className="flex flex-col items-center">
           <Loader2 className="h-10 w-10 animate-spin text-racing-red" />
           <p className="mt-4 text-muted-foreground">Caricamento...</p>
+          <Button 
+            variant="outline" 
+            className="mt-4"
+            onClick={handleRefresh}
+          >
+            <RefreshCcw className="mr-2 h-4 w-4" />
+            Ricarica pagina
+          </Button>
         </div>
       </div>
     );
