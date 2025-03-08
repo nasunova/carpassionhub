@@ -28,39 +28,44 @@ const PageLoading = () => (
   </div>
 );
 
+// Layout component that includes Navbar and Footer
+const Layout = ({ children }: { children: React.ReactNode }) => (
+  <div className="flex flex-col min-h-screen">
+    <Navbar />
+    <main className="flex-grow pt-20">{children}</main>
+    <Footer />
+  </div>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <div className="flex flex-col min-h-screen">
-            <Navbar />
-            <main className="flex-grow pt-20">
-              <AnimatePresence mode="wait">
-                <Suspense fallback={<PageLoading />}>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <Routes>
-                      <Route path="/" element={<Index />} />
-                      <Route path="/garage" element={<Garage />} />
-                      <Route path="/events" element={<Events />} />
-                      <Route path="/roads" element={<Roads />} />
-                      <Route path="/profile" element={<Profile />} />
-                      <Route path="/auth" element={<Auth />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </motion.div>
-                </Suspense>
-              </AnimatePresence>
-            </main>
-            <Footer />
-          </div>
+          <Toaster />
+          <Sonner />
+          <Layout>
+            <AnimatePresence mode="wait">
+              <Suspense fallback={<PageLoading />}>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/garage" element={<Garage />} />
+                    <Route path="/events" element={<Events />} />
+                    <Route path="/roads" element={<Roads />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/auth" element={<Auth />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </motion.div>
+              </Suspense>
+            </AnimatePresence>
+          </Layout>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

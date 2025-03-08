@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Auth = () => {
@@ -36,16 +36,15 @@ const Auth = () => {
   const [passwordsMatch, setPasswordsMatch] = useState(true);
   const [registrationError, setRegistrationError] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   // Redirect if already logged in
   useEffect(() => {
     console.log("Auth page - checking user state:", user);
     if (user) {
       console.log("Auth page - user found, redirecting to garage");
-      // Use a small timeout to ensure state updates have completed
-      setTimeout(() => {
-        navigate('/garage');
-      }, 100);
+      navigate('/garage');
     }
   }, [user, navigate]);
   
@@ -64,7 +63,7 @@ const Auth = () => {
       ...prev,
       [id === 'name' ? 'name' : 
         id === 'register-email' ? 'email' : 
-        id === 'register-password' ? 'password' : 'confirmPassword']: value
+        id === 'register-password' ? 'password' : 'confirm-password']: value
     }));
     
     if (id === 'register-password' || id === 'confirm-password') {
@@ -87,10 +86,7 @@ const Auth = () => {
       console.log("Tentativo login con:", loginData.email);
       await signIn(loginData.email, loginData.password);
       console.log("Login completato, l'utente dovrebbe essere reindirizzato automaticamente");
-      // Force navigation after successful login
-      setTimeout(() => {
-        navigate('/garage');
-      }, 500);
+      navigate('/garage');
     } catch (error: any) {
       console.error("Errore durante il login:", error);
       setLoginError(error.message || 'Errore durante l\'accesso. Riprova più tardi.');
@@ -147,10 +143,7 @@ const Auth = () => {
       console.log("Tentativo registrazione con:", registerData.email);
       await signUp(registerData.email, registerData.password, registerData.name);
       console.log("Registrazione completata, l'utente dovrebbe essere reindirizzato automaticamente");
-      // Force navigation after successful registration
-      setTimeout(() => {
-        navigate('/garage');
-      }, 500);
+      navigate('/garage');
     } catch (error: any) {
       console.error("Errore durante la registrazione:", error);
       setRegistrationError(error.message || 'Errore durante la registrazione. Riprova più tardi.');
@@ -211,13 +204,26 @@ const Auth = () => {
                   
                   <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input 
-                      id="password" 
-                      type="password" 
-                      value={loginData.password}
-                      onChange={handleLoginChange}
-                      required 
-                    />
+                    <div className="relative">
+                      <Input 
+                        id="password" 
+                        type={showPassword ? "text" : "password"}
+                        value={loginData.password}
+                        onChange={handleLoginChange}
+                        required 
+                      />
+                      <button 
+                        type="button"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   
                   <Button type="submit" className="w-full" disabled={isSubmittingLogin}>
@@ -265,13 +271,26 @@ const Auth = () => {
                   
                   <div className="space-y-2">
                     <Label htmlFor="register-password">Password</Label>
-                    <Input 
-                      id="register-password" 
-                      type="password" 
-                      value={registerData.password}
-                      onChange={handleRegisterChange}
-                      required 
-                    />
+                    <div className="relative">
+                      <Input 
+                        id="register-password" 
+                        type={showPassword ? "text" : "password"}
+                        value={registerData.password}
+                        onChange={handleRegisterChange}
+                        required 
+                      />
+                      <button 
+                        type="button"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </button>
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       La password deve contenere almeno 6 caratteri.
                     </p>
@@ -281,14 +300,27 @@ const Auth = () => {
                     <Label htmlFor="confirm-password" className={!passwordsMatch ? "text-red-500" : ""}>
                       Conferma Password
                     </Label>
-                    <Input 
-                      id="confirm-password" 
-                      type="password" 
-                      value={registerData.confirmPassword}
-                      onChange={handleRegisterChange}
-                      className={!passwordsMatch ? "border-red-500 focus-visible:ring-red-500" : ""}
-                      required 
-                    />
+                    <div className="relative">
+                      <Input 
+                        id="confirm-password" 
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={registerData.confirmPassword}
+                        onChange={handleRegisterChange}
+                        className={!passwordsMatch ? "border-red-500 focus-visible:ring-red-500" : ""}
+                        required 
+                      />
+                      <button 
+                        type="button"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </button>
+                    </div>
                     {!passwordsMatch && (
                       <p className="text-red-500 text-sm mt-1">Le password non coincidono</p>
                     )}
