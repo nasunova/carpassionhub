@@ -247,44 +247,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProfile = async (data: Partial<UserProfile>) => {
-    if (!isSupabaseAvailable() || !user) return;
+    if (!isSupabaseAvailable() || !user) {
+      throw new Error("Supabase non è configurato correttamente o utente non autenticato");
+    }
 
     try {
       setLoading(true);
       
-      // Aggiorna i metadati dell'utente
+      // Aggiorna i metadati dell'utente se è stato modificato il nome
       if (data.full_name) {
-        await supabase!.auth.updateUser({
+        const { error: authError } = await supabase!.auth.updateUser({
           data: { full_name: data.full_name },
         });
+        
+        if (authError) throw authError;
       }
+      
+      // Prepara i dati da aggiornare nel profilo
+      const updateData: Partial<UserProfile> = {};
+      
+      // Aggiungi solo i campi che sono stati forniti
+      if (data.full_name !== undefined) updateData.full_name = data.full_name;
+      if (data.avatar_url !== undefined) updateData.avatar_url = data.avatar_url;
+      if (data.bio !== undefined) updateData.bio = data.bio;
+      if (data.location !== undefined) updateData.location = data.location;
       
       // Aggiorna i dati nel profilo
       const { error } = await supabase!
         .from('profiles')
-        .update({
-          full_name: data.full_name || user.full_name,
-          avatar_url: data.avatar_url || user.avatar_url,
-          bio: data.bio,
-          location: data.location,
-        })
+        .update(updateData)
         .eq('id', user.id);
       
       if (error) throw error;
       
-      // Aggiorna lo stato locale
-      setUser({ ...user, ...data });
+      // Aggiorna lo stato locale con i nuovi dati
+      setUser(prevUser => {
+        if (!prevUser) return null;
+        return { ...prevUser, ...updateData };
+      });
       
-      toast({
-        title: "Profilo aggiornato",
-        description: "Le modifiche al profilo sono state salvate.",
-      });
+      console.log("Profilo aggiornato con successo:", updateData);
+      
     } catch (error: any) {
-      toast({
-        title: "Errore",
-        description: error.message || "Si è verificato un errore durante l'aggiornamento del profilo.",
-        variant: "destructive",
-      });
+      console.error("Errore nell'aggiornamento del profilo:", error);
+      throw error;
     } finally {
       setLoading(false);
     }

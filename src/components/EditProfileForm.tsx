@@ -38,14 +38,20 @@ const EditProfileForm = ({ onCancel, initialData }: EditProfileFormProps) => {
 
     try {
       await updateProfile({
-        ...formData as Partial<UserProfile>,
+        full_name: formData.full_name,
+        bio: formData.bio,
+        location: formData.location,
+        avatar_url: formData.avatar_url,
       });
+      
       toast({
         title: "Profilo aggiornato",
         description: "Le modifiche al profilo sono state salvate con successo.",
       });
+      
       onCancel(); // Chiude il form dopo il salvataggio
     } catch (error: any) {
+      console.error("Errore durante l'aggiornamento del profilo:", error);
       toast({
         title: "Errore",
         description: error.message || "Si è verificato un errore durante l'aggiornamento del profilo.",

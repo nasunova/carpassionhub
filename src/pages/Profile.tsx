@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { BlurredCard } from '@/components/ui/BlurredCard';
 import AnimatedTransition from '@/components/AnimatedTransition';
 import { Button } from '@/components/ui/button';
@@ -24,8 +25,8 @@ const Profile = () => {
       year: 'numeric', 
       month: 'long' 
     }),
-    bio: 'Appassionato di auto sportive e strade panoramiche. Amo guidare sulle strade di montagna nei weekend.',
-    location: 'Milano, Italia',
+    bio: user?.bio || 'Appassionato di auto sportive e strade panoramiche. Amo guidare sulle strade di montagna nei weekend.',
+    location: user?.location || 'Milano, Italia',
     badges: ['Premium', 'Road Master', 'Event Organizer'],
     stats: {
       followers: 128,
@@ -124,8 +125,8 @@ const Profile = () => {
                 onCancel={() => setIsEditing(false)}
                 initialData={{
                   full_name: user?.full_name || '',
-                  bio: userProfile.bio,
-                  location: userProfile.location
+                  bio: user?.bio || userProfile.bio,
+                  location: user?.location || userProfile.location
                 }}
               />
             </div>
