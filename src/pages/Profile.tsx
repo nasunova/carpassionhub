@@ -16,7 +16,11 @@ import AvatarUpload from '@/components/AvatarUpload';
 import CarGalleryCard, { CarGallery } from '@/components/CarGalleryCard';
 import AddCarModal from '@/components/AddCarModal';
 
-const Profile = () => {
+interface ProfileProps {
+  // You can define props here if needed
+}
+
+const Profile: React.FC<ProfileProps> = () => {
   const { user, updateProfile, updateAvatar } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -94,14 +98,14 @@ const Profile = () => {
     }
   }, [user, toast]);
 
-  // Modified useEffect to fetch user's cars without requiring the car_images relationship
+  // Modified useEffect to fetch user's cars based on actual database schema
   useEffect(() => {
     const fetchUserCars = async () => {
       if (!user) return;
       
       setIsLoadingCars(true);
       try {
-        // Fetch cars from Supabase with all required fields
+        // Fetch cars from Supabase with only the fields that exist in your database
         const { data, error } = await supabase
           .from('cars')
           .select(`
@@ -110,29 +114,29 @@ const Profile = () => {
             model, 
             year, 
             description,
-            power,
-            engine,
-            transmission,
-            drivetrain,
-            image
+            image,
+            owner_id,
+            owner_name,
+            owner_avatar
           `)
           .eq('owner_id', user.id);
           
         if (error) throw error;
 
-        // Transform the data
+        // Transform the data to match the expected CarGallery format
         const formattedCars: CarGallery[] = data.map(car => ({
           id: car.id,
           make: car.make,
           model: car.model,
           year: car.year,
-          // Use the image directly from the cars table instead of car_images
+          // Use the image directly from the cars table
           images: car.image ? [car.image] : [],
           specs: {
-            power: car.power || 'N/A',
-            engine: car.engine || 'N/A',
-            transmission: car.transmission || 'Manuale',
-            drivetrain: car.drivetrain || 'RWD'
+            // Since these fields might not exist in your schema, use placeholder values
+            power: 'N/A', 
+            engine: 'N/A',
+            transmission: 'N/A',
+            drivetrain: 'N/A'
           }
         }));
         

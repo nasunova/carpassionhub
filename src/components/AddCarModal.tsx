@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -75,7 +76,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
         return;
       }
 
-      // Insert car with image directly into cars table
+      // Insert car with only the fields that exist in your database
       const { data: newCarData, error: carError } = await supabase!
         .from("cars")
         .insert([
@@ -84,14 +85,10 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
             model: formData.model,
             year: formData.year,
             description: formData.description,
-            power: formData.power,
-            engine: formData.engine,
-            transmission: formData.transmission,
-            drivetrain: formData.drivetrain,
             owner_id: user.id,
             owner_name: user.user_metadata.full_name || "Utente",
             owner_avatar: user.user_metadata.avatar_url || "https://randomuser.me/api/portraits/men/32.jpg",
-            image: formData.image // Store image URL directly in the cars table
+            image: formData.image // Store image URL directly
           },
         ])
         .select()
@@ -104,7 +101,18 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
         description: `${formData.make} ${formData.model} è stata aggiunta al tuo garage.`,
       });
 
-      onCarAdded(newCarData);
+      // Add specs information to the returned car data before passing it to the parent
+      const carWithSpecs = {
+        ...newCarData,
+        specs: {
+          power: formData.power || 'N/A',
+          engine: formData.engine || 'N/A',
+          transmission: formData.transmission || 'Manuale',
+          drivetrain: formData.drivetrain || 'RWD'
+        }
+      };
+
+      onCarAdded(carWithSpecs);
       
       // Reset form
       setFormData({
