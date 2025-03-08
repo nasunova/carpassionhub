@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 // Supabase client setup with fallback values
@@ -21,6 +20,39 @@ export const supabase = isSupabaseConfigured
 
 // Helper function to check if Supabase is configured
 export const isSupabaseAvailable = () => !!isSupabaseConfigured;
+
+// Create a public storage bucket
+export const createPublicBucket = async (bucketName: string) => {
+  if (!isSupabaseConfigured || !supabase) {
+    console.error('Supabase not configured correctly');
+    return false;
+  }
+
+  try {
+    // Check if bucket exists
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
+    
+    if (!bucketExists) {
+      // Create bucket if it doesn't exist
+      const { error } = await supabase.storage.createBucket(bucketName, {
+        public: true // Make bucket public so we can access files without auth
+      });
+      
+      if (error) {
+        console.error(`Error creating ${bucketName} bucket:`, error);
+        return false;
+      }
+      
+      console.log(`Bucket ${bucketName} created successfully. Set up RLS policies in Supabase dashboard.`);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error(`Error creating ${bucketName} bucket:`, error);
+    return false;
+  }
+};
 
 // Function to check if a table exists
 const checkTableExists = async (tableName: string) => {

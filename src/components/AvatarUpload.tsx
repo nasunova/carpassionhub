@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -57,25 +56,9 @@ const AvatarUpload = ({
           return false;
         }
         
-        // Set up RLS policy to allow authenticated users to upload their own files
-        const { error: policyError } = await supabase.storage.from('avatars').createPolicy(
-          'authenticated-can-upload',
-          {
-            name: 'authenticated-can-upload',
-            definition: `
-              storage.object_id IS NOT NULL 
-              AND auth.role() = 'authenticated' 
-              AND storage.name LIKE auth.uid() || '/%'
-            `,
-            allow: 'INSERT',
-            for: 'objects',
-          }
-        );
-        
-        if (policyError) {
-          console.error('Error creating bucket policy:', policyError);
-          // Policy creation might fail in the current setup, but we'll try to upload anyway
-        }
+        // Note: We can't use createPolicy directly as it's not available in the current API
+        // Instead we'll rely on Supabase dashboard for setting up RLS policies
+        console.log('Avatars bucket created. Please set up proper RLS policies in the Supabase dashboard.');
       }
       
       return true;
@@ -97,8 +80,7 @@ const AvatarUpload = ({
 
       const file = event.target.files[0];
       const fileExt = file.name.split('.').pop();
-      const filePath = `${user.id}/avatar-${Math.random().toString(36).slice(2)}.${fileExt}`;
-
+      
       // Check if file is an image and not too large
       if (!file.type.match('image.*')) {
         toast({
@@ -131,8 +113,7 @@ const AvatarUpload = ({
       // Ensure bucket exists before upload
       await ensureAvatarBucketExists();
       
-      // If user doesn't have a bucket folder yet, try an alternative approach
-      // Use public path for avatar instead of user-specific folder
+      // Use public path for avatar instead of user-specific folder to avoid RLS issues
       const publicFilePath = `public/avatar-${user.id}-${Math.random().toString(36).slice(2)}.${fileExt}`;
       
       const { data, error } = await supabase.storage
@@ -145,7 +126,7 @@ const AvatarUpload = ({
       if (error) {
         console.error('Upload error:', error);
         
-        if (error.message.includes('security policy')) {
+        if (error.message.includes('security policy') || error.message.includes('Unauthorized')) {
           setError('Errore di permessi. Contatta l\'amministratore.');
           toast({
             title: "Errore di permessi",
