@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { Loader2, AlertTriangle } from "lucide-react";
 interface AddCarModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCarAdded: (car: Car) => void;
+  onCarAdded: (car: any) => void;
 }
 
 const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
@@ -24,9 +25,13 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
     year: new Date().getFullYear(),
     image: "",
     description: "",
+    power: "",
+    engine: "",
+    transmission: "Manuale",
+    drivetrain: "RWD"
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setCarData((prev) => ({
       ...prev,
@@ -72,15 +77,18 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
       }
 
       // Insert car into database
-      const { data, error } = await supabase!
+      const { data: carData, error: carError } = await supabase!
         .from("cars")
         .insert([
           {
             make: carData.make,
             model: carData.model,
             year: carData.year,
-            image: carData.image,
             description: carData.description,
+            power: carData.power,
+            engine: carData.engine,
+            transmission: carData.transmission,
+            drivetrain: carData.drivetrain,
             owner_id: user.id,
             owner_name: user.user_metadata.full_name || "Utente",
             owner_avatar: user.user_metadata.avatar_url || "https://randomuser.me/api/portraits/men/32.jpg",
@@ -89,29 +97,46 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
         .select()
         .single();
 
-      if (error) throw error;
-
-      // Format car for UI
-      const newCar: Car = {
-        id: data.id,
-        make: data.make,
-        model: data.model,
-        year: data.year,
-        image: data.image,
-        description: data.description,
-        ownerName: data.owner_name,
-        ownerAvatar: data.owner_avatar,
-        likes: 0,
-        comments: 0,
-      };
+      if (carError) throw carError;
+      
+      // Add the image to car_images
+      const { error: imageError } = await supabase!
+        .from("car_images")
+        .insert([
+          {
+            car_id: carData.id,
+            image_url: carData.image,
+            is_primary: true
+          },
+        ]);
+        
+      if (imageError) {
+        console.error('Error adding car image:', imageError);
+        // We'll continue even if image insertion fails
+      }
 
       toast({
         title: "Auto aggiunta!",
         description: `${carData.make} ${carData.model} è stata aggiunta al tuo garage.`,
       });
 
-      onCarAdded(newCar);
-      onClose();
+      onCarAdded({
+        ...carData,
+        image: carData.image
+      });
+      
+      // Reset form
+      setCarData({
+        make: "",
+        model: "",
+        year: new Date().getFullYear(),
+        image: "",
+        description: "",
+        power: "",
+        engine: "",
+        transmission: "Manuale",
+        drivetrain: "RWD"
+      });
     } catch (error) {
       console.error("Error adding car:", error);
       toast({
@@ -126,7 +151,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Aggiungi Auto al Garage</DialogTitle>
           <DialogDescription>
@@ -144,7 +169,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="make" className="text-right">
                   Marca*
@@ -200,6 +225,70 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
                   required
                 />
               </div>
+              
+              {/* Additional car details */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="engine" className="text-right">
+                  Motore
+                </Label>
+                <Input
+                  id="engine"
+                  name="engine"
+                  value={carData.engine}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  placeholder="es. V8 4.0L"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="power" className="text-right">
+                  Potenza
+                </Label>
+                <Input
+                  id="power"
+                  name="power"
+                  value={carData.power}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  placeholder="es. 450 CV"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="transmission" className="text-right">
+                  Trasmissione
+                </Label>
+                <select
+                  id="transmission"
+                  name="transmission"
+                  value={carData.transmission}
+                  onChange={handleInputChange}
+                  className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                >
+                  <option value="Manuale">Manuale</option>
+                  <option value="Automatica">Automatica</option>
+                  <option value="Sequenziale">Sequenziale</option>
+                  <option value="CVT">CVT</option>
+                  <option value="DCT">DCT (Doppia frizione)</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="drivetrain" className="text-right">
+                  Trazione
+                </Label>
+                <select
+                  id="drivetrain"
+                  name="drivetrain"
+                  value={carData.drivetrain}
+                  onChange={handleInputChange}
+                  className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                >
+                  <option value="RWD">Posteriore (RWD)</option>
+                  <option value="FWD">Anteriore (FWD)</option>
+                  <option value="AWD">Integrale (AWD)</option>
+                  <option value="4WD">4x4</option>
+                </select>
+              </div>
+              
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="description" className="text-right">
                   Descrizione
