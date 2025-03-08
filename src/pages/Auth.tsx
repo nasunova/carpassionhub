@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { BlurredCard } from '@/components/ui/BlurredCard';
 import AnimatedTransition from '@/components/AnimatedTransition';
@@ -40,47 +39,32 @@ const Auth = () => {
   const [loginError, setLoginError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [localLoading, setLocalLoading] = useState(true);
   
-  // Fix: Better handling of auth state and navigation
+  // Forced loading state with a timeout to prevent infinite loading
+  const [pageReady, setPageReady] = useState(false);
+  
+  // Fix: Initialize page and prevent getting stuck
   useEffect(() => {
-    // Clear any previous errors and reset loading states
-    setLoginError('');
-    setRegistrationError('');
-    setIsSubmittingLogin(false);
-    setIsSubmittingRegister(false);
+    console.log("Auth page loading - initial state check");
     
-    console.log("Auth page - checking user state:", user);
-    
-    // Set a maximum timeout to prevent getting stuck
-    const maxTimeout = setTimeout(() => {
-      console.log("Auth page - max timeout reached, forcing loading state to false");
-      setLocalLoading(false);
-    }, 2000);
-    
-    // Add a small delay to ensure context is fully initialized
-    const timer = setTimeout(() => {
-      setLocalLoading(false);
-      
-      if (user) {
-        console.log("Auth page - user found, redirecting to garage");
-        navigate('/garage', { replace: true });
-      }
-    }, 800);
+    // Force page ready after a short delay regardless of auth state
+    const forceReadyTimer = setTimeout(() => {
+      console.log("Auth page - forcing ready state after timeout");
+      setPageReady(true);
+    }, 1000);
     
     return () => {
-      clearTimeout(timer);
-      clearTimeout(maxTimeout);
+      clearTimeout(forceReadyTimer);
     };
-  }, [user, navigate]);
+  }, []);
   
-  // Handle manual navigation to garage when we detect user is logged in
+  // Handle navigation when user state changes
   useEffect(() => {
-    if (!localLoading && !authLoading && user) {
-      console.log("Auth page - detected user logged in, redirecting", user);
+    if (user && pageReady) {
+      console.log("Auth page - user detected, navigating to garage");
       navigate('/garage', { replace: true });
     }
-  }, [localLoading, authLoading, user, navigate]);
+  }, [user, pageReady, navigate]);
   
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -117,7 +101,7 @@ const Auth = () => {
     setLoginError('');
     
     try {
-      console.log("Tentativo login con:", loginData.email);
+      console.log("Attempting login with:", loginData.email);
       await signIn(loginData.email, loginData.password);
       
       // Show success toast
@@ -132,7 +116,7 @@ const Auth = () => {
       }, 500);
       
     } catch (error: any) {
-      console.error("Errore durante il login:", error);
+      console.error("Login error:", error);
       setLoginError(error.message || 'Errore durante l\'accesso. Riprova più tardi.');
       setIsSubmittingLogin(false);
     }
@@ -183,7 +167,7 @@ const Auth = () => {
     
     setIsSubmittingRegister(true);
     try {
-      console.log("Tentativo registrazione con:", registerData.email);
+      console.log("Attempting registration with:", registerData.email);
       await signUp(registerData.email, registerData.password, registerData.name);
       
       // Show success toast
@@ -198,14 +182,14 @@ const Auth = () => {
       }, 500);
       
     } catch (error: any) {
-      console.error("Errore durante la registrazione:", error);
+      console.error("Registration error:", error);
       setRegistrationError(error.message || 'Errore durante la registrazione. Riprova più tardi.');
       setIsSubmittingRegister(false);
     }
   };
   
-  // Show a clear loading state with a timeout to prevent getting stuck
-  if (authLoading || (localLoading && Date.now() < Date.now() + 3000)) {
+  // Show loading state
+  if (!pageReady || (authLoading && !user)) {
     return (
       <div className="container mx-auto px-4 py-12 flex justify-center items-center min-h-[80vh]">
         <div className="text-center">

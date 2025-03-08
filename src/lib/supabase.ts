@@ -30,11 +30,12 @@ export const checkTableExists = async (tableName: string): Promise<boolean> => {
   }
   
   try {
-    // Safer way to check if table exists - query for a single row with timeout
+    // More reliable way to check if table exists without causing errors
     const { data, error } = await supabase
       .from(tableName)
-      .select('*')
+      .select('count')
       .limit(1)
+      .throwOnError(false)
       .maybeSingle();
       
     if (error) {
@@ -44,7 +45,7 @@ export const checkTableExists = async (tableName: string): Promise<boolean> => {
         return false;
       }
       
-      // For other errors, we log but assume the table might exist
+      // For other errors, we log but assume the table might not exist to be safe
       console.warn(`Error checking ${tableName} table existence:`, error);
       return false;
     }
