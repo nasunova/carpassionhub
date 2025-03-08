@@ -58,20 +58,6 @@ export const setupProfilesTable = async () => {
       console.log('Tabella profiles creata con successo');
     } else {
       console.log('La tabella profiles esiste già');
-      
-      // Verifica se servono aggiornamenti alla struttura della tabella
-      try {
-        // Aggiungi colonne mancanti alla tabella profiles
-        await supabase.rpc('add_columns_to_profiles_if_not_exists', {
-          column_definitions: [
-            { column_name: 'bio', column_type: 'text' },
-            { column_name: 'location', column_type: 'text' }
-          ]
-        });
-        console.log('Struttura tabella profiles aggiornata');
-      } catch (error) {
-        console.error('Errore nell\'aggiornamento della struttura:', error);
-      }
     }
     
     return true;

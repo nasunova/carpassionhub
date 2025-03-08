@@ -9,8 +9,6 @@ export type UserProfile = {
   email: string;
   full_name?: string;
   avatar_url?: string;
-  bio?: string;
-  location?: string;
   created_at: string;
 };
 
@@ -43,39 +41,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { user } } = await supabase!.auth.getUser();
         
         if (user) {
-          try {
-            // Tenta di ottenere i dati del profilo, ma non fallire se la tabella non esiste
-            const { data: profile, error } = await supabase!
-              .from('profiles')
-              .select('*')
-              .eq('id', user.id)
-              .single();
-            
-            // Se c'è un errore ma non è correlato all'inesistenza della tabella
-            if (error && !error.message.includes('does not exist')) {
-              console.error('Errore nel recupero del profilo:', error);
-            }
-            
-            setUser({
-              id: user.id,
-              email: user.email!,
-              full_name: profile?.full_name || user.user_metadata?.full_name,
-              avatar_url: profile?.avatar_url || user.user_metadata?.avatar_url,
-              bio: profile?.bio,
-              location: profile?.location,
-              created_at: user.created_at!,
-            });
-          } catch (error) {
-            console.error('Errore nel recupero del profilo:', error);
-            // Imposta comunque l'utente con i dati di base
-            setUser({
-              id: user.id,
-              email: user.email!,
-              full_name: user.user_metadata?.full_name,
-              avatar_url: user.user_metadata?.avatar_url,
-              created_at: user.created_at!,
-            });
-          }
+          // Ottieni i dati del profilo
+          const { data: profile } = await supabase!
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+          
+          setUser({
+            id: user.id,
+            email: user.email!,
+            full_name: profile?.full_name || user.user_metadata?.full_name,
+            avatar_url: profile?.avatar_url || user.user_metadata?.avatar_url,
+            created_at: user.created_at!,
+          });
         }
       } catch (error) {
         console.error('Errore nel controllo dell\'utente:', error);
@@ -88,39 +67,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase!.auth.onAuthStateChange(
       async (event, session) => {
         if (session && session.user) {
-          try {
-            // Tenta di ottenere i dati del profilo, ma non fallire se la tabella non esiste
-            const { data: profile, error } = await supabase!
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-            
-            // Se c'è un errore ma non è correlato all'inesistenza della tabella
-            if (error && !error.message.includes('does not exist')) {
-              console.error('Errore nel recupero del profilo:', error);
-            }
-            
-            setUser({
-              id: session.user.id,
-              email: session.user.email!,
-              full_name: profile?.full_name || session.user.user_metadata?.full_name,
-              avatar_url: profile?.avatar_url || session.user.user_metadata?.avatar_url,
-              bio: profile?.bio,
-              location: profile?.location,
-              created_at: session.user.created_at!,
-            });
-          } catch (error) {
-            console.error('Errore nel recupero del profilo:', error);
-            // Imposta comunque l'utente con i dati di base
-            setUser({
-              id: session.user.id,
-              email: session.user.email!,
-              full_name: session.user.user_metadata?.full_name,
-              avatar_url: session.user.user_metadata?.avatar_url,
-              created_at: session.user.created_at!,
-            });
-          }
+          // Ottieni i dati del profilo
+          const { data: profile } = await supabase!
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          setUser({
+            id: session.user.id,
+            email: session.user.email!,
+            full_name: profile?.full_name || session.user.user_metadata?.full_name,
+            avatar_url: profile?.avatar_url || session.user.user_metadata?.avatar_url,
+            created_at: session.user.created_at!,
+          });
         } else {
           setUser(null);
         }
@@ -156,10 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Benvenuto su CarPassionHub!",
       });
       
-      // Aggiungiamo un piccolo ritardo per assicurarci che lo stato dell'utente sia aggiornato
-      setTimeout(() => {
-        navigate('/garage');
-      }, 100);
+      navigate('/garage');
     } catch (error: any) {
       let errorMessage = "Si è verificato un errore durante il login.";
       
@@ -300,32 +257,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
       
-      // Tenta di aggiornare i dati nel profilo, ma non fallire se la tabella non esiste
-      try {
-        const { error } = await supabase!
-          .from('profiles')
-          .update({
-            full_name: data.full_name || user.full_name,
-            avatar_url: data.avatar_url || user.avatar_url,
-            bio: data.bio,
-            location: data.location,
-          })
-          .eq('id', user.id);
-        
-        if (error) {
-          // Se l'errore è relativo alla tabella mancante, lo gestiamo silenziosamente
-          if (error.message.includes('does not exist')) {
-            console.log('Tabella profiles non esistente, aggiornati solo i metadati');
-          } else {
-            throw error;
-          }
-        }
-      } catch (error: any) {
-        // Se l'errore non è relativo alla tabella mancante, lo propaghiamo
-        if (!error.message.includes('does not exist')) {
-          throw error;
-        }
-      }
+      // Aggiorna i dati nel profilo
+      const { error } = await supabase!
+        .from('profiles')
+        .update({
+          full_name: data.full_name || user.full_name,
+          avatar_url: data.avatar_url || user.avatar_url,
+        })
+        .eq('id', user.id);
+      
+      if (error) throw error;
       
       // Aggiorna lo stato locale
       setUser({ ...user, ...data });
