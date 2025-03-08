@@ -47,20 +47,32 @@ const Auth = () => {
     const timeout = setTimeout(() => {
       console.info("Auth page - forcing ready state after timeout");
       setForceReady(true);
-    }, 2000); // Reduced timeout to 2 seconds
+    }, 2000);
     
     return () => clearTimeout(timeout);
   }, []);
   
-  // Redirect if already logged in
+  // Redirect if already logged in - with a short delay to ensure context is ready
   useEffect(() => {
-    console.info("Auth page - checking user state:", { user: !!user, loading, forceReady });
-    if (user && !loading) {
-      console.info("User is logged in, redirecting to garage");
-      navigate('/garage');
-    }
+    console.info("Auth page - checking user state:", { 
+      user: user ? user.id : null, 
+      loading, 
+      forceReady,
+      route: window.location.pathname
+    });
+    
+    // Short delay to ensure navigation happens after state is updated
+    const redirectTimeout = setTimeout(() => {
+      if (user && !loading) {
+        console.info("User is logged in, redirecting to garage");
+        navigate('/garage');
+      }
+    }, 500);
+    
+    return () => clearTimeout(redirectTimeout);
   }, [user, loading, navigate, forceReady]);
   
+  // Handle login form changes
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setLoginData(prev => ({
@@ -70,6 +82,7 @@ const Auth = () => {
     setLoginError('');
   };
   
+  // Handle register form changes
   const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setRegisterData(prev => ({
@@ -88,6 +101,7 @@ const Auth = () => {
     setRegistrationError('');
   };
   
+  // Handle login submission
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -98,7 +112,7 @@ const Auth = () => {
     try {
       console.info("Attempting login with email:", loginData.email);
       await signIn(loginData.email, loginData.password);
-      // AuthContext handles navigation after successful login
+      // Navigate is handled in AuthContext
     } catch (error: any) {
       console.error("Login error:", error);
       setLoginError(error.message || 'Errore durante l\'accesso. Riprova più tardi.');
@@ -107,6 +121,7 @@ const Auth = () => {
     }
   };
   
+  // Validation functions
   const validatePassword = (password: string) => {
     if (password.length < 6) {
       return 'La password deve contenere almeno 6 caratteri.';
@@ -122,6 +137,7 @@ const Auth = () => {
     return '';
   };
   
+  // Handle register submission
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -163,12 +179,13 @@ const Auth = () => {
     }
   };
   
+  // Handle page refresh
   const handleRefresh = () => {
     console.info("User requested page refresh");
     window.location.reload();
   };
   
-  // Show a refresh button if loading takes too long
+  // Show loading state if still initializing
   if ((loading && !forceReady) || (!user && !forceReady && loading)) {
     return (
       <div className="container mx-auto px-4 py-12 flex justify-center items-center min-h-[80vh]">

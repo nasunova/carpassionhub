@@ -20,6 +20,7 @@ type AuthContextType = {
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
 };
 
+// Create context with default undefined value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -28,7 +29,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Initialize auth state
   useEffect(() => {
+    console.log("AuthProvider initialized");
+    
     if (!isSupabaseAvailable()) {
       console.warn("Supabase is not available. Authentication will not work.");
       setLoading(false);
@@ -139,11 +143,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkUser();
 
     return () => {
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
       clearTimeout(loadingTimeout);
     };
   }, [navigate]);
 
+  // Sign in function
   const signIn = async (email: string, password: string) => {
     if (!isSupabaseAvailable()) {
       toast({
@@ -165,7 +170,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Benvenuto su CarPassionHub!",
       });
       
-      navigate('/garage');
+      // Use a small timeout to ensure state is updated before navigation
+      setTimeout(() => {
+        navigate('/garage');
+      }, 100);
     } catch (error: any) {
       let errorMessage = "Si è verificato un errore durante il login.";
       
@@ -185,6 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Sign up function 
   const signUp = async (email: string, password: string, fullName: string) => {
     if (!isSupabaseAvailable()) {
       toast({
@@ -271,6 +280,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Sign out function
   const signOut = async () => {
     if (!isSupabaseAvailable()) return;
     
@@ -293,6 +303,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Update profile function
   const updateProfile = async (data: Partial<UserProfile>) => {
     if (!isSupabaseAvailable() || !user) return;
 
@@ -342,6 +353,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
+// Custom hook to use auth
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
