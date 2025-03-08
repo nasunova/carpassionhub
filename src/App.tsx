@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Suspense, lazy, useState, useEffect } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { setupProfilesTable } from "@/lib/supabase";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 
@@ -33,9 +34,20 @@ const App = () => {
 
   // Ensure components are initialized properly before rendering
   useEffect(() => {
+    // Initialize Supabase tables
+    const initSupabase = async () => {
+      await setupProfilesTable();
+    };
+    
     // Add a small delay to ensure DOM is fully loaded
-    const timer = setTimeout(() => {
-      setIsInitialized(true);
+    const timer = setTimeout(async () => {
+      try {
+        await initSupabase();
+      } catch (error) {
+        console.error("Error initializing Supabase:", error);
+      } finally {
+        setIsInitialized(true);
+      }
     }, 100);
     
     return () => clearTimeout(timer);

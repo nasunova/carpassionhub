@@ -1,6 +1,7 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, isSupabaseAvailable } from '@/lib/supabase';
+import { supabase, isSupabaseAvailable, initializeProfileExtras } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
 export type UserProfile = {
@@ -78,6 +79,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             avatar_url: profile?.avatar_url || data.user.user_metadata?.avatar_url,
             created_at: data.user.created_at!,
           });
+
+          // Initialize profile extras if needed
+          if (profile && (!profile.stats || !profile.badges)) {
+            await initializeProfileExtras(data.user.id);
+          }
         } else {
           console.info("No user found in session");
           setUser(null);
@@ -118,6 +124,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               avatar_url: profile?.avatar_url || session.user.user_metadata?.avatar_url,
               created_at: session.user.created_at!,
             });
+
+            // Initialize profile extras if needed
+            if (profile && (!profile.stats || !profile.badges)) {
+              await initializeProfileExtras(session.user.id);
+            }
             
             // Automatically navigate to garage on successful authentication
             if (event === 'SIGNED_IN') {
@@ -323,6 +334,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .update({
           full_name: data.full_name || user.full_name,
           avatar_url: data.avatar_url || user.avatar_url,
+          updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
       

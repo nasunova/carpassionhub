@@ -1,34 +1,139 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BlurredCard } from '@/components/ui/BlurredCard';
 import AnimatedTransition from '@/components/AnimatedTransition';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, UserCircle, Edit, Mail, MapPin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const Profile = () => {
-  // Dati di esempio per il profilo
-  const profileData = {
-    name: 'Marco Rossi',
-    username: 'speedmaster',
-    avatar: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80',
-    joinDate: 'Maggio 2023',
-    bio: 'Appassionato di auto sportive e strade panoramiche. Amo guidare sulle strade di montagna nei weekend.',
-    location: 'Milano, Italia',
-    badges: ['Premium', 'Road Master', 'Event Organizer'],
-    stats: {
-      followers: 128,
-      following: 87,
-      events: 12,
-      roads: 34
+  const { user, updateProfile } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    full_name: '',
+    email: '',
+    location: '',
+    bio: ''
+  });
+
+  // Fetch extended profile data from Supabase
+  const [profileData, setProfileData] = useState<any>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+
+  useEffect(() => {
+    // Initialize form data when user data is available
+    if (user) {
+      setFormData({
+        full_name: user.full_name || '',
+        email: user.email || '',
+        location: '',
+        bio: ''
+      });
+
+      // Fetch extended profile data
+      const fetchProfileData = async () => {
+        setIsLoadingProfile(true);
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+          if (error) {
+            console.error('Error fetching profile:', error);
+            toast({
+              title: 'Errore',
+              description: 'Impossibile caricare i dati del profilo',
+              variant: 'destructive',
+            });
+          } else if (data) {
+            console.log('Profile data:', data);
+            setProfileData(data);
+            
+            // Update form with additional data
+            setFormData(prev => ({
+              ...prev,
+              location: data.location || '',
+              bio: data.bio || ''
+            }));
+          }
+        } catch (error) {
+          console.error('Error:', error);
+        } finally {
+          setIsLoadingProfile(false);
+        }
+      };
+
+      fetchProfileData();
+    }
+  }, [user, toast]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSaveProfile = async () => {
+    setLoading(true);
+    try {
+      // Update profile in Supabase
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: formData.full_name,
+          location: formData.location,
+          bio: formData.bio,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user?.id);
+
+      if (error) throw error;
+
+      // Also update in auth context
+      await updateProfile({
+        full_name: formData.full_name
+      });
+
+      toast({
+        title: 'Profilo aggiornato',
+        description: 'Le modifiche al profilo sono state salvate.',
+      });
+      
+      setEditing(false);
+      
+      // Update local state
+      setProfileData(prev => ({
+        ...prev,
+        full_name: formData.full_name,
+        location: formData.location,
+        bio: formData.bio
+      }));
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: 'Errore',
+        description: error.message || 'Si è verificato un errore durante l\'aggiornamento del profilo.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Dati di esempio per le auto nel garage con multiple immagini
+  // Example data for cars, events, and roads
   const cars = [
     {
       id: 1,
@@ -106,57 +211,198 @@ const Profile = () => {
     }
   ];
 
+  if (!user) {
+    return (
+      <AnimatedTransition>
+        <div className="container mx-auto px-4 py-8">
+          <BlurredCard className="max-w-4xl mx-auto p-6">
+            <div className="text-center p-12">
+              <UserCircle className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+              <h2 className="text-2xl font-semibold mb-2">Accesso richiesto</h2>
+              <p className="text-muted-foreground mb-6">
+                Devi effettuare l'accesso per visualizzare il tuo profilo.
+              </p>
+              <Button onClick={() => window.location.href = '/auth'}>
+                Accedi
+              </Button>
+            </div>
+          </BlurredCard>
+        </div>
+      </AnimatedTransition>
+    );
+  }
+
   return (
     <AnimatedTransition>
       <div className="container mx-auto px-4 py-8">
         <BlurredCard className="max-w-4xl mx-auto p-6">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
-            <Avatar className="w-24 h-24">
-              <AvatarImage src={profileData.avatar} alt="Profile" />
-              <AvatarFallback className="text-2xl">MR</AvatarFallback>
-            </Avatar>
-            
-            <div className="flex-1 text-center md:text-left">
-              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-                <h1 className="text-3xl font-bold">{profileData.name}</h1>
-                <div className="flex flex-wrap gap-1 justify-center md:justify-start">
-                  {profileData.badges.map((badge, index) => (
-                    <Badge key={index} variant="outline" className="bg-primary/10 text-primary">
-                      {badge}
-                    </Badge>
-                  ))}
+          {isLoadingProfile ? (
+            // Loading state
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
+              <Skeleton className="w-24 h-24 rounded-full" />
+              <div className="flex-1 space-y-4">
+                <Skeleton className="h-8 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-4 w-1/3" />
+                <div className="h-24 w-full">
+                  <Skeleton className="h-full w-full" />
                 </div>
-              </div>
-              <p className="text-muted-foreground mt-1">@{profileData.username} · {profileData.location}</p>
-              <p className="text-muted-foreground">Membro da {profileData.joinDate}</p>
-              
-              <p className="mt-3">{profileData.bio}</p>
-              
-              <div className="mt-4 flex justify-center md:justify-start gap-6">
-                <div className="text-center">
-                  <p className="font-bold">{profileData.stats.followers}</p>
-                  <p className="text-sm text-muted-foreground">Follower</p>
+                <div className="flex gap-2">
+                  <Skeleton className="h-10 w-32" />
+                  <Skeleton className="h-10 w-32" />
                 </div>
-                <div className="text-center">
-                  <p className="font-bold">{profileData.stats.following}</p>
-                  <p className="text-sm text-muted-foreground">Seguiti</p>
-                </div>
-                <div className="text-center">
-                  <p className="font-bold">{profileData.stats.events}</p>
-                  <p className="text-sm text-muted-foreground">Eventi</p>
-                </div>
-                <div className="text-center">
-                  <p className="font-bold">{profileData.stats.roads}</p>
-                  <p className="text-sm text-muted-foreground">Strade</p>
-                </div>
-              </div>
-              
-              <div className="mt-4 flex flex-wrap gap-2 justify-center md:justify-start">
-                <Button variant="outline" size="sm">Modifica Profilo</Button>
-                <Button variant="outline" size="sm">Impostazioni</Button>
               </div>
             </div>
-          </div>
+          ) : editing ? (
+            // Edit mode
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
+              <Avatar className="w-24 h-24">
+                <AvatarImage 
+                  src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || user.email)}&background=random`} 
+                  alt="Profile" 
+                />
+                <AvatarFallback className="text-2xl">{(user.full_name || user.email || '').substring(0, 2).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              
+              <div className="flex-1">
+                <div className="space-y-4 w-full">
+                  <div>
+                    <Label htmlFor="full_name">Nome completo</Label>
+                    <Input
+                      id="full_name"
+                      name="full_name"
+                      value={formData.full_name}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      disabled
+                      className="mt-1 bg-muted"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="location">Luogo</Label>
+                    <Input
+                      id="location"
+                      name="location"
+                      value={formData.location}
+                      onChange={handleInputChange}
+                      placeholder="es. Milano, Italia"
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="bio">Bio</Label>
+                    <Input
+                      id="bio"
+                      name="bio"
+                      value={formData.bio}
+                      onChange={handleInputChange}
+                      placeholder="Raccontaci qualcosa di te..."
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setEditing(false)}
+                      disabled={loading}
+                    >
+                      Annulla
+                    </Button>
+                    <Button 
+                      onClick={handleSaveProfile}
+                      disabled={loading}
+                    >
+                      {loading ? 'Salvataggio...' : 'Salva modifiche'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            // View mode
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
+              <Avatar className="w-24 h-24">
+                <AvatarImage 
+                  src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || user.email)}&background=random`} 
+                  alt="Profile" 
+                />
+                <AvatarFallback className="text-2xl">{(user.full_name || user.email || '').substring(0, 2).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              
+              <div className="flex-1 text-center md:text-left">
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                  <h1 className="text-3xl font-bold">{user.full_name || 'Utente'}</h1>
+                  {profileData?.badges && profileData.badges.length > 0 && (
+                    <div className="flex flex-wrap gap-1 justify-center md:justify-start">
+                      {profileData.badges.map((badge: string, index: number) => (
+                        <Badge key={index} variant="outline" className="bg-primary/10 text-primary">
+                          {badge}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 justify-center md:justify-start text-muted-foreground mt-1">
+                  <Mail className="h-4 w-4" />
+                  <span>{user.email}</span>
+                </div>
+                {formData.location && (
+                  <div className="flex items-center gap-1 justify-center md:justify-start text-muted-foreground">
+                    <MapPin className="h-4 w-4" />
+                    <span>{formData.location}</span>
+                  </div>
+                )}
+                <p className="text-muted-foreground">Membro da {new Date(user.created_at).toLocaleDateString('it-IT', { year: 'numeric', month: 'long' })}</p>
+                
+                {formData.bio && <p className="mt-3">{formData.bio}</p>}
+                
+                {profileData?.stats && (
+                  <div className="mt-4 flex justify-center md:justify-start gap-6">
+                    <div className="text-center">
+                      <p className="font-bold">{profileData.stats.followers || 0}</p>
+                      <p className="text-sm text-muted-foreground">Follower</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-bold">{profileData.stats.following || 0}</p>
+                      <p className="text-sm text-muted-foreground">Seguiti</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-bold">{profileData.stats.events || 0}</p>
+                      <p className="text-sm text-muted-foreground">Eventi</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-bold">{profileData.stats.roads || 0}</p>
+                      <p className="text-sm text-muted-foreground">Strade</p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="mt-4 flex flex-wrap gap-2 justify-center md:justify-start">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setEditing(true)}
+                    className="flex items-center gap-1"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Modifica Profilo
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
           
           <Tabs defaultValue="garage" className="w-full">
             <TabsList className="grid grid-cols-3 mb-6">
