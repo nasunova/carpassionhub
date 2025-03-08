@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Auth = () => {
   // Auth context
-  const { user, signIn, signUp } = useAuth();
+  const { user, loading: authLoading, signIn, signUp } = useAuth();
   const navigate = useNavigate();
   
   // Login and register form data
@@ -42,7 +42,10 @@ const Auth = () => {
     console.log("Auth page - checking user state:", user);
     if (user) {
       console.log("Auth page - user found, redirecting to garage");
-      navigate('/garage');
+      // Use a small timeout to ensure state updates have completed
+      setTimeout(() => {
+        navigate('/garage');
+      }, 100);
     }
   }, [user, navigate]);
   
@@ -84,6 +87,10 @@ const Auth = () => {
       console.log("Tentativo login con:", loginData.email);
       await signIn(loginData.email, loginData.password);
       console.log("Login completato, l'utente dovrebbe essere reindirizzato automaticamente");
+      // Force navigation after successful login
+      setTimeout(() => {
+        navigate('/garage');
+      }, 500);
     } catch (error: any) {
       console.error("Errore durante il login:", error);
       setLoginError(error.message || 'Errore durante l\'accesso. Riprova più tardi.');
@@ -140,6 +147,10 @@ const Auth = () => {
       console.log("Tentativo registrazione con:", registerData.email);
       await signUp(registerData.email, registerData.password, registerData.name);
       console.log("Registrazione completata, l'utente dovrebbe essere reindirizzato automaticamente");
+      // Force navigation after successful registration
+      setTimeout(() => {
+        navigate('/garage');
+      }, 500);
     } catch (error: any) {
       console.error("Errore durante la registrazione:", error);
       setRegistrationError(error.message || 'Errore durante la registrazione. Riprova più tardi.');
@@ -147,6 +158,18 @@ const Auth = () => {
       setIsSubmittingRegister(false);
     }
   };
+  
+  // If auth is still initializing, show a loading indicator
+  if (authLoading) {
+    return (
+      <div className="container mx-auto px-4 py-12 flex justify-center items-center min-h-[80vh]">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-racing-red" />
+          <p className="mt-4 text-muted-foreground">Caricamento in corso...</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <AnimatedTransition>

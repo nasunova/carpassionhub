@@ -43,18 +43,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
 
-        const { data: { user: authUser } } = await supabase!.auth.getUser();
+        const { data: { user: authUser }, error: getUserError } = await supabase!.auth.getUser();
+        
+        if (getUserError) {
+          console.error("Errore nel recupero dell'utente:", getUserError);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
         
         console.log("Risposta getUser:", authUser ? "Utente trovato" : "Nessun utente");
         
         if (authUser) {
           try {
             // Get user profile
-            const { data: profile } = await supabase!
+            const { data: profile, error: profileError } = await supabase!
               .from('profiles')
               .select('*')
               .eq('id', authUser.id)
               .single();
+            
+            if (profileError) {
+              console.error("Errore nel recupero del profilo:", profileError);
+            }
             
             console.log("Profilo trovato:", profile ? "Sì" : "No");
             
@@ -105,11 +116,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (session && session.user) {
             try {
               // Get profile on auth state change
-              const { data: profile } = await supabase!
+              const { data: profile, error: profileError } = await supabase!
                 .from('profiles')
                 .select('*')
                 .eq('id', session.user.id)
                 .single();
+              
+              if (profileError) {
+                console.error("Errore nel recupero del profilo dopo cambio stato auth:", profileError);
+              }
               
               // Update user state
               setUser({
@@ -133,9 +148,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 location: '',
                 created_at: session.user.created_at!,
               });
+            } finally {
+              setLoading(false);
             }
           } else {
             setUser(null);
+            setLoading(false);
           }
         }
       );
@@ -165,6 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       console.log("Tentativo di login per:", email);
+      setLoading(true);
       
       // Sign in
       const { error, data } = await supabase!.auth.signInWithPassword({ 
@@ -186,11 +205,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Get user profile
       try {
-        const { data: profile } = await supabase!
+        const { data: profile, error: profileError } = await supabase!
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
           .single();
+        
+        if (profileError) {
+          console.error("Errore nel recupero del profilo dopo login:", profileError);
+        }
         
         console.log("Profilo utente trovato:", profile ? "Sì" : "No");
         
@@ -216,15 +239,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           location: '',
           created_at: data.user.created_at!,
         });
+      } finally {
+        setLoading(false);
       }
       
       toast({
         title: "Login effettuato",
         description: "Benvenuto su CarPassionHub!",
       });
-      
-      // Navigate immediately after login
-      navigate('/garage');
     } catch (error: any) {
       console.error("Errore di login:", error);
       let errorMessage = "Si è verificato un errore durante il login.";
@@ -239,6 +261,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         variant: "destructive",
       });
       
+      setLoading(false);
       throw error;
     }
   };
@@ -255,6 +278,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       console.log("Tentativo di registrazione per:", email);
+      setLoading(true);
       
       // Validate credentials
       if (password.length < 6) {
@@ -288,7 +312,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Create profile
         try {
-          await supabase!.from('profiles').insert([
+          const { error: profileError } = await supabase!.from('profiles').insert([
             {
               id: data.user.id,
               full_name: fullName,
@@ -297,7 +321,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             },
           ]);
           
-          console.log("Profilo creato, effettuo login automatico");
+          if (profileError) {
+            console.error("Errore nella creazione del profilo:", profileError);
+          } else {
+            console.log("Profilo creato, effettuo login automatico");
+          }
         } catch (profileError) {
           console.error("Errore nella creazione del profilo:", profileError);
           // Continue with sign-in even if profile creation fails
@@ -332,15 +360,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             title: "Registrazione completata",
             description: "Il tuo account è stato creato con successo.",
           });
-          
-          // Navigate to garage
-          navigate('/garage');
         } catch (signInError) {
           console.error("Errore nel login automatico post-registrazione:", signInError);
           toast({
             title: "Account creato",
             description: "Il tuo account è stato creato. Effettua il login.",
           });
+        } finally {
+          setLoading(false);
         }
       }
     } catch (error: any) {
@@ -361,6 +388,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         variant: "destructive",
       });
       
+      setLoading(false);
       throw error;
     }
   };
@@ -370,6 +398,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       console.log("Tentativo di logout...");
+      setLoading(true);
       await supabase!.auth.signOut();
       setUser(null); // Ensure user state is cleared
       toast({
@@ -384,6 +413,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: error.message || "Si è verificato un errore durante il logout.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -394,6 +425,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       console.log("Aggiornamento profilo per utente:", user.id);
+      setLoading(true);
       
       // Update user metadata if name changed
       if (data.full_name) {
@@ -455,6 +487,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         variant: "destructive",
       });
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
