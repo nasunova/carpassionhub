@@ -12,9 +12,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { Skeleton } from '@/components/ui/skeleton';
+import AvatarUpload from '@/components/AvatarUpload';
 
 const Profile = () => {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, updateAvatar } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -318,13 +319,11 @@ const Profile = () => {
           ) : editing ? (
             // Edit mode
             <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
-              <Avatar className="w-24 h-24">
-                <AvatarImage 
-                  src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || user.email)}&background=random`} 
-                  alt="Profile" 
-                />
-                <AvatarFallback className="text-2xl">{(user.full_name || user.email || '').substring(0, 2).toUpperCase()}</AvatarFallback>
-              </Avatar>
+              <AvatarUpload 
+                user={user!} 
+                onAvatarChange={updateAvatar}
+                size="md"
+              />
               
               <div className="flex-1">
                 <div className="space-y-4 w-full">
@@ -395,13 +394,12 @@ const Profile = () => {
           ) : (
             // View mode
             <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
-              <Avatar className="w-24 h-24">
-                <AvatarImage 
-                  src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || user.email)}&background=random`} 
-                  alt="Profile" 
-                />
-                <AvatarFallback className="text-2xl">{(user.full_name || user.email || '').substring(0, 2).toUpperCase()}</AvatarFallback>
-              </Avatar>
+              <AvatarUpload 
+                user={user!} 
+                onAvatarChange={updateAvatar}
+                size="md"
+                disabled={!editing}
+              />
               
               <div className="flex-1 text-center md:text-left">
                 <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">

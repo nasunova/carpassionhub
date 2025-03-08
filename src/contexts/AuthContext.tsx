@@ -18,6 +18,7 @@ type AuthContextType = {
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
+  updateAvatar: (url: string) => Promise<void>;
 };
 
 // Create context with default undefined value
@@ -394,8 +395,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Update avatar function
+  const updateAvatar = async (url: string) => {
+    if (!isSupabaseAvailable() || !user) return;
+
+    try {
+      setLoading(true);
+      
+      // Aggiorna i dati nel profilo
+      const { error } = await supabase!
+        .from('profiles')
+        .update({
+          avatar_url: url,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      // Aggiorna lo stato locale
+      setUser({ ...user, avatar_url: url });
+      
+      toast({
+        title: "Avatar aggiornato",
+        description: "La tua foto profilo è stata aggiornata.",
+      });
+      
+      return;
+    } catch (error: any) {
+      toast({
+        title: "Errore",
+        description: error.message || "Si è verificato un errore durante l'aggiornamento dell'avatar.",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateProfile }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      signIn, 
+      signUp, 
+      signOut, 
+      updateProfile,
+      updateAvatar 
+    }}>
       {children}
     </AuthContext.Provider>
   );
