@@ -13,9 +13,11 @@ import { Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Auth = () => {
-  const { user, loading: authLoading, signIn, signUp } = useAuth();
+  // Auth context
+  const { user, signIn, signUp } = useAuth();
   const navigate = useNavigate();
   
+  // Login and register form data
   const [loginData, setLoginData] = useState({
     email: '',
     password: '',
@@ -28,18 +30,21 @@ const Auth = () => {
     confirmPassword: '',
   });
   
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Form states
+  const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
+  const [isSubmittingRegister, setIsSubmittingRegister] = useState(false);
   const [passwordsMatch, setPasswordsMatch] = useState(true);
   const [registrationError, setRegistrationError] = useState('');
   const [loginError, setLoginError] = useState('');
   
   // Redirect if already logged in
   useEffect(() => {
-    if (user && !authLoading) {
-      console.log("Utente già autenticato, redirect a /garage");
+    console.log("Auth page - checking user state:", user);
+    if (user) {
+      console.log("Auth page - user found, redirecting to garage");
       navigate('/garage');
     }
-  }, [user, authLoading, navigate]);
+  }, [user, navigate]);
   
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -70,21 +75,20 @@ const Auth = () => {
   
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return;
+    if (isSubmittingLogin) return;
     
-    setIsSubmitting(true);
+    setIsSubmittingLogin(true);
     setLoginError('');
     
     try {
       console.log("Tentativo login con:", loginData.email);
       await signIn(loginData.email, loginData.password);
-      console.log("Login completato");
-      // Non facciamo navigate qui, lo fa la funzione signIn
+      console.log("Login completato, l'utente dovrebbe essere reindirizzato automaticamente");
     } catch (error: any) {
       console.error("Errore durante il login:", error);
       setLoginError(error.message || 'Errore durante l\'accesso. Riprova più tardi.');
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingLogin(false);
     }
   };
   
@@ -105,7 +109,7 @@ const Auth = () => {
   
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return;
+    if (isSubmittingRegister) return;
     
     // Reset errors
     setRegistrationError('');
@@ -131,32 +135,18 @@ const Auth = () => {
       return;
     }
     
-    setIsSubmitting(true);
+    setIsSubmittingRegister(true);
     try {
       console.log("Tentativo registrazione con:", registerData.email);
       await signUp(registerData.email, registerData.password, registerData.name);
-      console.log("Registrazione completata");
-      // Non facciamo navigate qui, lo fa la funzione signUp
+      console.log("Registrazione completata, l'utente dovrebbe essere reindirizzato automaticamente");
     } catch (error: any) {
       console.error("Errore durante la registrazione:", error);
       setRegistrationError(error.message || 'Errore durante la registrazione. Riprova più tardi.');
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingRegister(false);
     }
   };
-  
-  // Mostra il loader solo durante il caricamento iniziale,
-  // non quando l'utente sta effettuando il login/registrazione
-  if (authLoading && !isSubmitting) {
-    return (
-      <div className="container mx-auto px-4 py-12 flex justify-center items-center min-h-[80vh]">
-        <div className="flex flex-col items-center">
-          <Loader2 className="h-10 w-10 animate-spin text-racing-red" />
-          <p className="mt-4 text-muted-foreground">Caricamento...</p>
-        </div>
-      </div>
-    );
-  }
   
   return (
     <AnimatedTransition>
@@ -207,8 +197,8 @@ const Auth = () => {
                     />
                   </div>
                   
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? (
+                  <Button type="submit" className="w-full" disabled={isSubmittingLogin}>
+                    {isSubmittingLogin ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Accesso in corso...
@@ -284,9 +274,9 @@ const Auth = () => {
                   <Button 
                     type="submit" 
                     className="w-full" 
-                    disabled={isSubmitting || !passwordsMatch}
+                    disabled={isSubmittingRegister || !passwordsMatch}
                   >
-                    {isSubmitting ? (
+                    {isSubmittingRegister ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Creazione account...

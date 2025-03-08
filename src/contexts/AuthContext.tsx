@@ -31,72 +31,123 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Check auth state on initial load
   useEffect(() => {
-    if (!isSupabaseAvailable()) {
-      setLoading(false);
-      return;
-    }
-
-    // Controlla se l'utente è già autenticato
     const checkUser = async () => {
       try {
-        const { data: { user } } = await supabase!.auth.getUser();
+        console.log("Controllo stato autenticazione iniziale...");
         
-        if (user) {
-          // Ottieni i dati del profilo
-          const { data: profile } = await supabase!
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-          
-          setUser({
-            id: user.id,
-            email: user.email!,
-            full_name: profile?.full_name || user.user_metadata?.full_name,
-            avatar_url: profile?.avatar_url || user.user_metadata?.avatar_url,
-            bio: profile?.bio || '',
-            location: profile?.location || '',
-            created_at: user.created_at!,
-          });
+        if (!isSupabaseAvailable()) {
+          console.log("Supabase non disponibile, saltando controllo autenticazione");
+          setLoading(false);
+          return;
+        }
+
+        const { data: { user: authUser } } = await supabase!.auth.getUser();
+        
+        console.log("Risposta getUser:", authUser ? "Utente trovato" : "Nessun utente");
+        
+        if (authUser) {
+          try {
+            // Get user profile
+            const { data: profile } = await supabase!
+              .from('profiles')
+              .select('*')
+              .eq('id', authUser.id)
+              .single();
+            
+            console.log("Profilo trovato:", profile ? "Sì" : "No");
+            
+            // Set user state
+            setUser({
+              id: authUser.id,
+              email: authUser.email!,
+              full_name: profile?.full_name || authUser.user_metadata?.full_name || '',
+              avatar_url: profile?.avatar_url || authUser.user_metadata?.avatar_url || '',
+              bio: profile?.bio || '',
+              location: profile?.location || '',
+              created_at: authUser.created_at!,
+            });
+          } catch (profileError) {
+            console.error("Errore nel recupero del profilo:", profileError);
+            // Still set basic user info even if profile fetch fails
+            setUser({
+              id: authUser.id,
+              email: authUser.email!,
+              full_name: authUser.user_metadata?.full_name || '',
+              avatar_url: authUser.user_metadata?.avatar_url || '',
+              bio: '',
+              location: '',
+              created_at: authUser.created_at!,
+            });
+          }
+        } else {
+          setUser(null);
         }
       } catch (error) {
-        console.error('Errore nel controllo dell\'utente:', error);
+        console.error("Errore nel controllo dell'utente:", error);
+        setUser(null);
       } finally {
         setLoading(false);
       }
     };
 
-    // Configura il listener per i cambiamenti di autenticazione
-    const { data: { subscription } } = supabase!.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log("Auth state changed:", event, session?.user?.id);
-        if (session && session.user) {
-          // Ottieni i dati del profilo
-          const { data: profile } = await supabase!
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+    // Set up auth state change listener
+    const setupAuthListener = () => {
+      if (!isSupabaseAvailable()) return { unsubscribe: () => {} };
+      
+      console.log("Configurazione listener cambiamenti autenticazione");
+      
+      const { data: { subscription } } = supabase!.auth.onAuthStateChange(
+        async (event, session) => {
+          console.log("Auth state changed:", event, session?.user?.id);
           
-          setUser({
-            id: session.user.id,
-            email: session.user.email!,
-            full_name: profile?.full_name || session.user.user_metadata?.full_name,
-            avatar_url: profile?.avatar_url || session.user.user_metadata?.avatar_url,
-            bio: profile?.bio || '',
-            location: profile?.location || '',
-            created_at: session.user.created_at!,
-          });
-        } else {
-          setUser(null);
+          if (session && session.user) {
+            try {
+              // Get profile on auth state change
+              const { data: profile } = await supabase!
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+              
+              // Update user state
+              setUser({
+                id: session.user.id,
+                email: session.user.email!,
+                full_name: profile?.full_name || session.user.user_metadata?.full_name || '',
+                avatar_url: profile?.avatar_url || session.user.user_metadata?.avatar_url || '',
+                bio: profile?.bio || '',
+                location: profile?.location || '',
+                created_at: session.user.created_at!,
+              });
+            } catch (profileError) {
+              console.error("Errore nel recupero del profilo dopo cambio stato auth:", profileError);
+              // Still set basic user info even if profile fetch fails
+              setUser({
+                id: session.user.id,
+                email: session.user.email!,
+                full_name: session.user.user_metadata?.full_name || '',
+                avatar_url: session.user.user_metadata?.avatar_url || '',
+                bio: '',
+                location: '',
+                created_at: session.user.created_at!,
+              });
+            }
+          } else {
+            setUser(null);
+          }
         }
-        setLoading(false);
-      }
-    );
-
+      );
+      
+      return subscription;
+    };
+    
+    // Execute setup
     checkUser();
-
+    const subscription = setupAuthListener();
+    
+    // Cleanup on unmount
     return () => {
       subscription.unsubscribe();
     };
@@ -115,46 +166,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log("Tentativo di login per:", email);
       
-      // Effettua il login
-      const { error, data } = await supabase!.auth.signInWithPassword({ email, password });
+      // Sign in
+      const { error, data } = await supabase!.auth.signInWithPassword({ 
+        email, 
+        password 
+      });
       
       if (error) {
         console.error("Errore autenticazione:", error);
         throw error;
       }
       
-      // Verifichiamo che l'utente sia effettivamente loggato
       if (!data?.user) {
         console.error("Nessun utente restituito dopo il login");
         throw new Error("Login fallito. Nessun utente restituito.");
       }
       
-      console.log("Login completato con successo");
+      console.log("Login completato con successo, ID:", data.user.id);
       
-      // Ottieni i dati del profilo
-      const { data: profile } = await supabase!
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
-      
-      // Impostiamo manualmente l'utente per garantire che l'interfaccia si aggiorni subito
-      setUser({
-        id: data.user.id,
-        email: data.user.email!,
-        full_name: profile?.full_name || data.user.user_metadata?.full_name,
-        avatar_url: profile?.avatar_url || data.user.user_metadata?.avatar_url,
-        bio: profile?.bio || '',
-        location: profile?.location || '',
-        created_at: data.user.created_at!,
-      });
+      // Get user profile
+      try {
+        const { data: profile } = await supabase!
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+        
+        console.log("Profilo utente trovato:", profile ? "Sì" : "No");
+        
+        // Update user state immediately
+        setUser({
+          id: data.user.id,
+          email: data.user.email!,
+          full_name: profile?.full_name || data.user.user_metadata?.full_name || '',
+          avatar_url: profile?.avatar_url || data.user.user_metadata?.avatar_url || '',
+          bio: profile?.bio || '',
+          location: profile?.location || '',
+          created_at: data.user.created_at!,
+        });
+      } catch (profileError) {
+        console.error("Errore nel recupero del profilo dopo login:", profileError);
+        // Set basic user info even if profile fetch fails
+        setUser({
+          id: data.user.id,
+          email: data.user.email!,
+          full_name: data.user.user_metadata?.full_name || '',
+          avatar_url: data.user.user_metadata?.avatar_url || '',
+          bio: '',
+          location: '',
+          created_at: data.user.created_at!,
+        });
+      }
       
       toast({
         title: "Login effettuato",
         description: "Benvenuto su CarPassionHub!",
       });
       
-      // Facciamo subito il redirect
+      // Navigate immediately after login
       navigate('/garage');
     } catch (error: any) {
       console.error("Errore di login:", error);
@@ -187,18 +256,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log("Tentativo di registrazione per:", email);
       
-      // Controlla che la password sia valida
+      // Validate credentials
       if (password.length < 6) {
         throw new Error("La password deve contenere almeno 6 caratteri.");
       }
       
-      // Controlla che l'email sia valida
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
         throw new Error("L'indirizzo email non è valido.");
       }
       
-      // Registra l'utente
+      // Sign up
       const { data, error } = await supabase!.auth.signUp({
         email,
         password,
@@ -206,7 +274,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data: {
             full_name: fullName,
           },
-          // Rimuovo l'email verification disabilitandola
           emailRedirectTo: undefined,
         },
       });
@@ -217,48 +284,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (data.user) {
-        console.log("Registrazione completata, creazione profilo");
+        console.log("Registrazione completata, creazione profilo per ID:", data.user.id);
         
-        // Crea il profilo nella tabella profiles
-        await supabase!.from('profiles').insert([
-          {
-            id: data.user.id,
-            full_name: fullName,
-            avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=random`,
-            email: email,
-          },
-        ]);
-        
-        console.log("Profilo creato, effettuo login automatico");
-        
-        // Effettua il login automaticamente dopo la registrazione
-        const { error: loginError, data: loginData } = await supabase!.auth.signInWithPassword({
-          email,
-          password
-        });
-        
-        if (loginError) {
-          console.error("Errore login post-registrazione:", loginError);
-          throw loginError;
+        // Create profile
+        try {
+          await supabase!.from('profiles').insert([
+            {
+              id: data.user.id,
+              full_name: fullName,
+              avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=random`,
+              email: email,
+            },
+          ]);
+          
+          console.log("Profilo creato, effettuo login automatico");
+        } catch (profileError) {
+          console.error("Errore nella creazione del profilo:", profileError);
+          // Continue with sign-in even if profile creation fails
         }
         
-        // Impostiamo manualmente l'utente
-        setUser({
-          id: data.user.id,
-          email: data.user.email!,
-          full_name: fullName,
-          avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=random`,
-          bio: '',
-          location: '',
-          created_at: data.user.created_at!,
-        });
-        
-        toast({
-          title: "Registrazione completata",
-          description: "Il tuo account è stato creato con successo.",
-        });
-        
-        navigate('/garage');
+        // Sign in automatically after registration
+        try {
+          const { error: loginError, data: loginData } = await supabase!.auth.signInWithPassword({
+            email,
+            password
+          });
+          
+          if (loginError) {
+            console.error("Errore login post-registrazione:", loginError);
+            throw loginError;
+          }
+          
+          console.log("Login automatico completato");
+          
+          // Set user immediately
+          setUser({
+            id: data.user.id,
+            email: data.user.email!,
+            full_name: fullName,
+            avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=random`,
+            bio: '',
+            location: '',
+            created_at: data.user.created_at!,
+          });
+          
+          toast({
+            title: "Registrazione completata",
+            description: "Il tuo account è stato creato con successo.",
+          });
+          
+          // Navigate to garage
+          navigate('/garage');
+        } catch (signInError) {
+          console.error("Errore nel login automatico post-registrazione:", signInError);
+          toast({
+            title: "Account creato",
+            description: "Il tuo account è stato creato. Effettua il login.",
+          });
+        }
       }
     } catch (error: any) {
       console.error("Errore di registrazione:", error);
@@ -286,21 +369,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!isSupabaseAvailable()) return;
     
     try {
-      setLoading(true);
+      console.log("Tentativo di logout...");
       await supabase!.auth.signOut();
+      setUser(null); // Ensure user state is cleared
       toast({
         title: "Logout effettuato",
         description: "Hai effettuato il logout con successo.",
       });
       navigate('/');
     } catch (error: any) {
+      console.error("Errore durante il logout:", error);
       toast({
         title: "Errore",
         description: error.message || "Si è verificato un errore durante il logout.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -310,35 +393,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      setLoading(true);
+      console.log("Aggiornamento profilo per utente:", user.id);
       
-      // Aggiorna i metadati dell'utente se è stato modificato il nome
+      // Update user metadata if name changed
       if (data.full_name) {
-        const { error: authError } = await supabase!.auth.updateUser({
-          data: { full_name: data.full_name },
-        });
-        
-        if (authError) throw authError;
+        try {
+          const { error: authError } = await supabase!.auth.updateUser({
+            data: { full_name: data.full_name },
+          });
+          
+          if (authError) {
+            console.error("Errore nell'aggiornamento dei metadati:", authError);
+          }
+        } catch (authUpdateError) {
+          console.error("Eccezione durante l'aggiornamento dei metadati:", authUpdateError);
+        }
       }
       
-      // Prepara i dati da aggiornare nel profilo
+      // Prepare profile update data
       const updateData: Partial<UserProfile> = {};
       
-      // Aggiungi solo i campi che sono stati forniti
       if (data.full_name !== undefined) updateData.full_name = data.full_name;
       if (data.avatar_url !== undefined) updateData.avatar_url = data.avatar_url;
       if (data.bio !== undefined) updateData.bio = data.bio;
       if (data.location !== undefined) updateData.location = data.location;
       
-      // Aggiorna i dati nel profilo
-      const { error } = await supabase!
-        .from('profiles')
-        .update(updateData)
-        .eq('id', user.id);
+      // Update profile
+      try {
+        const { error } = await supabase!
+          .from('profiles')
+          .update(updateData)
+          .eq('id', user.id);
+        
+        if (error) {
+          console.error("Errore nell'aggiornamento del profilo:", error);
+          throw error;
+        }
+        
+        console.log("Profilo aggiornato con successo");
+      } catch (profileUpdateError) {
+        console.error("Eccezione durante l'aggiornamento del profilo:", profileUpdateError);
+        throw profileUpdateError;
+      }
       
-      if (error) throw error;
-      
-      // Aggiorna lo stato locale con i nuovi dati
+      // Update local user state
       setUser(prevUser => {
         if (!prevUser) return null;
         return { ...prevUser, ...updateData };
@@ -357,13 +455,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         variant: "destructive",
       });
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
+  const contextValue = {
+    user,
+    loading,
+    signIn,
+    signUp,
+    signOut,
+    updateProfile
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateProfile }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
