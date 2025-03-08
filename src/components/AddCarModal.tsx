@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase, isSupabaseAvailable } from "@/lib/supabase";
 import { Car } from "@/components/CarCard";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, X, Plus } from "lucide-react";
 
 interface AddCarModalProps {
   isOpen: boolean;
@@ -23,7 +23,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
     make: "",
     model: "",
     year: new Date().getFullYear(),
-    image: "",
+    images: [""],
     description: "",
     power: "",
     engine: "",
@@ -39,6 +39,32 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
     }));
   };
 
+  const handleImageChange = (value: string, index: number) => {
+    const newImages = [...formData.images];
+    newImages[index] = value;
+    setFormData((prev) => ({
+      ...prev,
+      images: newImages,
+    }));
+  };
+
+  const addImageField = () => {
+    setFormData((prev) => ({
+      ...prev,
+      images: [...prev.images, ""],
+    }));
+  };
+
+  const removeImageField = (index: number) => {
+    if (formData.images.length <= 1) return;
+    
+    const newImages = formData.images.filter((_, i) => i !== index);
+    setFormData((prev) => ({
+      ...prev,
+      images: newImages,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -51,10 +77,10 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
       return;
     }
     
-    if (!formData.make || !formData.model || !formData.image) {
+    if (!formData.make || !formData.model || formData.images.some(img => !img.trim())) {
       toast({
         title: "Campi mancanti",
-        description: "Compila tutti i campi obbligatori.",
+        description: "Compila tutti i campi obbligatori inclusi gli URL delle immagini.",
         variant: "destructive",
       });
       return;
@@ -76,7 +102,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
         return;
       }
 
-      // Insert car with only the fields that exist in your database
+      // Inserisci la prima immagine come immagine principale nell'auto
       const { data: newCarData, error: carError } = await supabase!
         .from("cars")
         .insert([
@@ -88,7 +114,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
             owner_id: user.id,
             owner_name: user.user_metadata.full_name || "Utente",
             owner_avatar: user.user_metadata.avatar_url || "https://randomuser.me/api/portraits/men/32.jpg",
-            image: formData.image // Store image URL directly
+            image: formData.images[0] // Usa la prima immagine come principale
           },
         ])
         .select()
@@ -96,14 +122,33 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
 
       if (carError) throw carError;
 
+      // Se ci sono più immagini, aggiungiamole alla tabella car_images
+      if (formData.images.length > 1) {
+        const additionalImages = formData.images.slice(1).map(imgUrl => ({
+          car_id: newCarData.id,
+          image_url: imgUrl,
+          created_at: new Date().toISOString()
+        }));
+        
+        if (additionalImages.length > 0) {
+          // Inserisci le immagini aggiuntive nella tabella car_images
+          const { error: imagesError } = await supabase!
+            .from("car_images")
+            .insert(additionalImages);
+          
+          if (imagesError) console.error("Errore inserimento immagini aggiuntive:", imagesError);
+        }
+      }
+
       toast({
         title: "Auto aggiunta!",
         description: `${formData.make} ${formData.model} è stata aggiunta al tuo garage.`,
       });
 
-      // Add specs information to the returned car data before passing it to the parent
+      // Aggiungi le informazioni sulle specifiche all'auto restituita prima di passarla al componente padre
       const carWithSpecs = {
         ...newCarData,
+        images: formData.images, // Passa tutte le immagini
         specs: {
           power: formData.power || 'N/A',
           engine: formData.engine || 'N/A',
@@ -119,7 +164,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
         make: "",
         model: "",
         year: new Date().getFullYear(),
-        image: "",
+        images: [""],
         description: "",
         power: "",
         engine: "",
@@ -200,19 +245,44 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
                   max={new Date().getFullYear() + 1}
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="image" className="text-right">
-                  URL Immagine*
+              
+              {/* Multiple Images Section */}
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="text-right mt-2">
+                  URL Immagini*
                 </Label>
-                <Input
-                  id="image"
-                  name="image"
-                  value={formData.image}
-                  onChange={handleInputChange}
-                  className="col-span-3"
-                  placeholder="https://esempio.com/immagine.jpg"
-                  required
-                />
+                <div className="col-span-3 space-y-2">
+                  {formData.images.map((image, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        value={image}
+                        onChange={(e) => handleImageChange(e.target.value, index)}
+                        className="flex-1"
+                        placeholder="https://esempio.com/immagine.jpg"
+                        required
+                      />
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="icon"
+                        disabled={formData.images.length <= 1}
+                        onClick={() => removeImageField(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addImageField}
+                    className="mt-1"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Aggiungi altra immagine
+                  </Button>
+                </div>
               </div>
               
               {/* Additional car details */}

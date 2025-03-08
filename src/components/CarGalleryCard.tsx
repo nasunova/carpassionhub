@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BlurredCard } from '@/components/ui/BlurredCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,11 +35,23 @@ const CarGalleryCard = ({ car, onDelete, editable = true }: CarGalleryCardProps)
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Assicuriamoci che car.images sia sempre un array
+  useEffect(() => {
+    if (!car.images) {
+      car.images = [];
+    } else if (!Array.isArray(car.images)) {
+      // Se è una stringa singola, convertiamola in array
+      car.images = [car.images as unknown as string];
+    }
+  }, [car]);
+
   const nextImage = () => {
+    if (car.images.length <= 1) return;
     setCurrentImageIndex((prev) => (prev + 1) % car.images.length);
   };
 
   const prevImage = () => {
+    if (car.images.length <= 1) return;
     setCurrentImageIndex((prev) => (prev - 1 + car.images.length) % car.images.length);
   };
 
@@ -56,7 +68,7 @@ const CarGalleryCard = ({ car, onDelete, editable = true }: CarGalleryCardProps)
     }
 
     try {
-      // For database stored cars, update in Supabase
+      // Per le auto memorizzate nel database, aggiorna in Supabase
       if (typeof car.id === 'string') {
         const { error } = await supabase!
           .from("car_images")
@@ -69,7 +81,7 @@ const CarGalleryCard = ({ car, onDelete, editable = true }: CarGalleryCardProps)
         if (error) throw error;
       }
 
-      // Update local car object
+      // Aggiorna l'oggetto auto locale
       car.images.push(newPhotoUrl);
       
       toast({
@@ -89,13 +101,72 @@ const CarGalleryCard = ({ car, onDelete, editable = true }: CarGalleryCardProps)
     }
   };
 
+  const handleDeletePhoto = async (index: number) => {
+    // Non permettere di eliminare l'unica immagine
+    if (car.images.length <= 1) {
+      toast({
+        title: "Operazione non permessa",
+        description: "Devi mantenere almeno un'immagine per l'auto",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      const imageUrl = car.images[index];
+      
+      // Se l'auto è memorizzata nel database, elimina l'immagine da Supabase
+      if (typeof car.id === 'string' && index > 0) { // Le immagini dopo la prima sono in car_images
+        const { error } = await supabase!
+          .from("car_images")
+          .delete()
+          .eq("car_id", car.id)
+          .eq("image_url", imageUrl);
+
+        if (error) throw error;
+      }
+      
+      // Aggiorna l'array locale di immagini
+      car.images = car.images.filter((_, i) => i !== index);
+      
+      // Se eliminiamo l'immagine corrente, aggiorniamo l'indice
+      if (index === currentImageIndex) {
+        setCurrentImageIndex(0);
+      } else if (index < currentImageIndex) {
+        setCurrentImageIndex(prev => prev - 1);
+      }
+      
+      toast({
+        title: "Immagine eliminata",
+        description: "L'immagine è stata rimossa dalla galleria",
+      });
+    } catch (error) {
+      console.error("Error deleting photo:", error);
+      toast({
+        title: "Errore",
+        description: "Impossibile eliminare l'immagine",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDeleteCar = async () => {
     if (!onDelete) return;
     
     setIsDeleting(true);
     try {
       if (typeof car.id === 'string') {
-        // Delete car from database
+        // Elimina prima tutte le immagini associate all'auto
+        const { error: imagesError } = await supabase!
+          .from("car_images")
+          .delete()
+          .eq("car_id", car.id);
+          
+        if (imagesError) {
+          console.error("Error deleting car images:", imagesError);
+        }
+        
+        // Poi elimina l'auto dal database
         const { error } = await supabase!
           .from("cars")
           .delete()
@@ -126,11 +197,22 @@ const CarGalleryCard = ({ car, onDelete, editable = true }: CarGalleryCardProps)
     <BlurredCard className="overflow-hidden hover:shadow-lg transition-all">
       <div className="relative h-48 overflow-hidden">
         {car.images && car.images.length > 0 ? (
-          <img 
-            src={car.images[currentImageIndex]} 
-            alt={`${car.make} ${car.model}`} 
-            className="w-full h-full object-cover"
-          />
+          <>
+            <img 
+              src={car.images[currentImageIndex]} 
+              alt={`${car.make} ${car.model}`} 
+              className="w-full h-full object-cover"
+            />
+            {editable && (
+              <button
+                onClick={() => handleDeletePhoto(currentImageIndex)}
+                className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
+                aria-label="Elimina foto"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </>
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-muted">
             <p className="text-muted-foreground">Nessuna immagine</p>
@@ -161,7 +243,7 @@ const CarGalleryCard = ({ car, onDelete, editable = true }: CarGalleryCardProps)
             {car.images.map((_, index) => (
               <span
                 key={index}
-                className={`h-2 w-2 rounded-full ${index === currentImageIndex ? 'bg-white' : 'bg-white/50'}`}
+                className={`h-2 w-2 rounded-full ${index === currentImageIndex ? 'bg-white' : 'bg-white/50'} cursor-pointer`}
                 onClick={() => setCurrentImageIndex(index)}
               />
             ))}
