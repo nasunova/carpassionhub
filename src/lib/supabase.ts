@@ -35,7 +35,6 @@ export const checkTableExists = async (tableName: string): Promise<boolean> => {
       .from(tableName)
       .select('count')
       .limit(1)
-      .throwOnError(false)
       .maybeSingle();
       
     if (error) {
