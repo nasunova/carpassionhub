@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { BlurredCard } from '@/components/ui/BlurredCard';
 import AnimatedTransition from '@/components/AnimatedTransition';
@@ -95,7 +94,7 @@ const Profile = () => {
     }
   }, [user, toast]);
 
-  // New useEffect to fetch user's cars
+  // Modified useEffect to fetch user's cars without requiring the car_images relationship
   useEffect(() => {
     const fetchUserCars = async () => {
       if (!user) return;
@@ -115,7 +114,7 @@ const Profile = () => {
             engine,
             transmission,
             drivetrain,
-            car_images (image_url)
+            image
           `)
           .eq('owner_id', user.id);
           
@@ -127,7 +126,8 @@ const Profile = () => {
           make: car.make,
           model: car.model,
           year: car.year,
-          images: car.car_images ? car.car_images.map((img: any) => img.image_url) : [],
+          // Use the image directly from the cars table instead of car_images
+          images: car.image ? [car.image] : [],
           specs: {
             power: car.power || 'N/A',
             engine: car.engine || 'N/A',

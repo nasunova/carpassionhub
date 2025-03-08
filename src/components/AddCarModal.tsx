@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -76,8 +75,8 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
         return;
       }
 
-      // Insert car into database
-      const { data: insertedCar, error: carError } = await supabase!
+      // Insert car with image directly into cars table
+      const { data: newCarData, error: carError } = await supabase!
         .from("cars")
         .insert([
           {
@@ -92,38 +91,20 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
             owner_id: user.id,
             owner_name: user.user_metadata.full_name || "Utente",
             owner_avatar: user.user_metadata.avatar_url || "https://randomuser.me/api/portraits/men/32.jpg",
+            image: formData.image // Store image URL directly in the cars table
           },
         ])
         .select()
         .single();
 
       if (carError) throw carError;
-      
-      // Add the image to car_images
-      const { error: imageError } = await supabase!
-        .from("car_images")
-        .insert([
-          {
-            car_id: insertedCar.id,
-            image_url: formData.image,
-            is_primary: true
-          },
-        ]);
-        
-      if (imageError) {
-        console.error('Error adding car image:', imageError);
-        // We'll continue even if image insertion fails
-      }
 
       toast({
         title: "Auto aggiunta!",
         description: `${formData.make} ${formData.model} è stata aggiunta al tuo garage.`,
       });
 
-      onCarAdded({
-        ...insertedCar,
-        image: formData.image
-      });
+      onCarAdded(newCarData);
       
       // Reset form
       setFormData({
