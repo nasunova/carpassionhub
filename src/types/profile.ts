@@ -46,3 +46,15 @@ export type Road = {
   image: string;
   review: string;
 };
+
+// This is our internal representation of a user profile which combines
+// Supabase auth data with profile data
+export type UserProfile = {
+  id: string;
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+  bio?: string;
+  location?: string;
+  created_at: string;
+};

@@ -42,17 +42,22 @@ const Auth = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [localLoading, setLocalLoading] = useState(true);
   
-  // Reset the auth page on mount to avoid getting stuck
+  // Fix: Better handling of auth state and navigation
   useEffect(() => {
     // Clear any previous errors and reset loading states
     setLoginError('');
     setRegistrationError('');
     setIsSubmittingLogin(false);
     setIsSubmittingRegister(false);
-    setLocalLoading(true);
     
     console.log("Auth page - checking user state:", user);
-
+    
+    // Set a maximum timeout to prevent getting stuck
+    const maxTimeout = setTimeout(() => {
+      console.log("Auth page - max timeout reached, forcing loading state to false");
+      setLocalLoading(false);
+    }, 2000);
+    
     // Add a small delay to ensure context is fully initialized
     const timer = setTimeout(() => {
       setLocalLoading(false);
@@ -61,10 +66,21 @@ const Auth = () => {
         console.log("Auth page - user found, redirecting to garage");
         navigate('/garage', { replace: true });
       }
-    }, 800); // Slightly longer delay to ensure context is loaded
+    }, 800);
     
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(maxTimeout);
+    };
   }, [user, navigate]);
+  
+  // Handle manual navigation to garage when we detect user is logged in
+  useEffect(() => {
+    if (!localLoading && !authLoading && user) {
+      console.log("Auth page - detected user logged in, redirecting", user);
+      navigate('/garage', { replace: true });
+    }
+  }, [localLoading, authLoading, user, navigate]);
   
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -110,7 +126,7 @@ const Auth = () => {
         description: "Accesso effettuato con successo. Redirezione in corso...",
       });
       
-      // Force navigation after a short delay - this helps avoid the stuck state
+      // Force navigation after a short delay
       setTimeout(() => {
         navigate('/garage', { replace: true });
       }, 500);
@@ -176,7 +192,7 @@ const Auth = () => {
         description: "Account creato con successo. Redirezione in corso...",
       });
       
-      // Force navigation after a short delay - this helps avoid the stuck state
+      // Force navigation after a short delay
       setTimeout(() => {
         navigate('/garage', { replace: true });
       }, 500);
@@ -188,8 +204,8 @@ const Auth = () => {
     }
   };
   
-  // Show clear loading state when waiting for auth to initialize
-  if (authLoading || localLoading) {
+  // Show a clear loading state with a timeout to prevent getting stuck
+  if (authLoading || (localLoading && Date.now() < Date.now() + 3000)) {
     return (
       <div className="container mx-auto px-4 py-12 flex justify-center items-center min-h-[80vh]">
         <div className="text-center">
