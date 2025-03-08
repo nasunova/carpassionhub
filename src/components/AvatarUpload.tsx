@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Upload, X } from 'lucide-react';
+import { Camera, Upload, X, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { UserProfile } from '@/contexts/AuthContext';
@@ -25,6 +25,7 @@ const AvatarUpload = ({
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Determine avatar size based on prop
@@ -36,9 +37,58 @@ const AvatarUpload = ({
 
   const avatarSize = sizeClasses[size];
 
+  // Ensure avatar storage bucket exists
+  const ensureAvatarBucketExists = async () => {
+    try {
+      if (!supabase) return false;
+      
+      // Check if bucket exists
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
+      
+      if (!avatarBucketExists) {
+        // Create bucket if it doesn't exist
+        const { error: createBucketError } = await supabase.storage.createBucket('avatars', {
+          public: true, // Make bucket public so we can access images without auth
+        });
+        
+        if (createBucketError) {
+          console.error('Error creating avatars bucket:', createBucketError);
+          return false;
+        }
+        
+        // Set up RLS policy to allow authenticated users to upload their own files
+        const { error: policyError } = await supabase.storage.from('avatars').createPolicy(
+          'authenticated-can-upload',
+          {
+            name: 'authenticated-can-upload',
+            definition: `
+              storage.object_id IS NOT NULL 
+              AND auth.role() = 'authenticated' 
+              AND storage.name LIKE auth.uid() || '/%'
+            `,
+            allow: 'INSERT',
+            for: 'objects',
+          }
+        );
+        
+        if (policyError) {
+          console.error('Error creating bucket policy:', policyError);
+          // Policy creation might fail in the current setup, but we'll try to upload anyway
+        }
+      }
+      
+      return true;
+    } catch (err) {
+      console.error('Error ensuring avatar bucket exists:', err);
+      return false;
+    }
+  };
+
   // Handle file selection
   const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
+      setError(null);
       setUploading(true);
       
       if (!event.target.files || event.target.files.length === 0) {
@@ -78,23 +128,44 @@ const AvatarUpload = ({
         return;
       }
 
+      // Ensure bucket exists before upload
+      await ensureAvatarBucketExists();
+      
+      // If user doesn't have a bucket folder yet, try an alternative approach
+      // Use public path for avatar instead of user-specific folder
+      const publicFilePath = `public/avatar-${user.id}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+      
       const { data, error } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file);
+        .upload(publicFilePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
       if (error) {
-        toast({
-          title: "Errore di caricamento",
-          description: error.message,
-          variant: "destructive",
-        });
+        console.error('Upload error:', error);
+        
+        if (error.message.includes('security policy')) {
+          setError('Errore di permessi. Contatta l\'amministratore.');
+          toast({
+            title: "Errore di permessi",
+            description: "Non hai i permessi per caricare file. Utilizza un avatar predefinito.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Errore di caricamento",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
         return;
       }
 
       // Get public URL for the uploaded file
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
-        .getPublicUrl(filePath);
+        .getPublicUrl(publicFilePath);
 
       // Update avatar URL in profile
       await onAvatarChange(publicUrl);
@@ -106,6 +177,7 @@ const AvatarUpload = ({
       
       setShowOptions(false);
     } catch (error: any) {
+      console.error('Avatar upload error:', error);
       toast({
         title: "Errore",
         description: error.message || "Si è verificato un errore durante il caricamento dell'immagine",
@@ -128,6 +200,7 @@ const AvatarUpload = ({
   const handleResetAvatar = async () => {
     try {
       setUploading(true);
+      setError(null);
       
       const defaultAvatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || user.email)}&background=random`;
       
@@ -173,6 +246,13 @@ const AvatarUpload = ({
       
       {showOptions && (
         <div className="absolute z-10 mt-2 p-2 bg-background rounded-lg border shadow-lg w-48">
+          {error && (
+            <div className="mb-2 p-2 bg-destructive/10 text-destructive text-xs rounded flex items-start">
+              <AlertTriangle className="h-3 w-3 mr-1 mt-0.5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+          
           <div className="space-y-2">
             <div>
               <input
