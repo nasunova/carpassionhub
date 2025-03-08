@@ -1,11 +1,12 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth, UserProfile } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { supabase, isSupabaseAvailable } from '@/lib/supabase';
 
 type EditProfileFormProps = {
   onCancel: () => void;
@@ -20,12 +21,41 @@ const EditProfileForm = ({ onCancel, initialData }: EditProfileFormProps) => {
   const { user, updateProfile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [profilesTableExists, setProfilesTableExists] = useState(true);
   const [formData, setFormData] = useState({
     full_name: initialData?.full_name || user?.full_name || '',
     bio: initialData?.bio || '',
     location: initialData?.location || '',
     avatar_url: user?.avatar_url || '',
   });
+
+  // Verifica se la tabella profiles esiste
+  useEffect(() => {
+    const checkProfilesTable = async () => {
+      if (!isSupabaseAvailable() || !supabase) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('information_schema.tables')
+          .select('table_name')
+          .eq('table_schema', 'public')
+          .eq('table_name', 'profiles');
+        
+        if (error) {
+          console.error('Errore nella verifica della tabella profiles:', error);
+          setProfilesTableExists(false);
+          return;
+        }
+        
+        setProfilesTableExists(data && data.length > 0);
+      } catch (error) {
+        console.error('Errore nella verifica della tabella profiles:', error);
+        setProfilesTableExists(false);
+      }
+    };
+    
+    checkProfilesTable();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -37,13 +67,22 @@ const EditProfileForm = ({ onCancel, initialData }: EditProfileFormProps) => {
     setLoading(true);
 
     try {
+      if (!profilesTableExists) {
+        toast({
+          title: "Avviso",
+          description: "La tabella profiles non esiste. I dati verranno salvati solo nei metadati utente.",
+        });
+      }
+      
       await updateProfile({
         ...formData as Partial<UserProfile>,
       });
+      
       toast({
         title: "Profilo aggiornato",
         description: "Le modifiche al profilo sono state salvate con successo.",
       });
+      
       onCancel(); // Chiude il form dopo il salvataggio
     } catch (error: any) {
       toast({
@@ -64,6 +103,15 @@ const EditProfileForm = ({ onCancel, initialData }: EditProfileFormProps) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {!profilesTableExists && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md p-3 mb-4">
+          <p className="text-sm">
+            La tabella "profiles" non è stata rilevata nel tuo database Supabase. 
+            Le modifiche al profilo potrebbero non essere salvate correttamente.
+          </p>
+        </div>
+      )}
+      
       <div className="space-y-2">
         <Label htmlFor="full_name">Nome completo</Label>
         <Input
