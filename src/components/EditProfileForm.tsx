@@ -35,19 +35,21 @@ const EditProfileForm = ({ onCancel, initialData }: EditProfileFormProps) => {
       if (!isSupabaseAvailable() || !supabase) return;
       
       try {
+        // Utilizziamo un metodo più sicuro per verificare l'esistenza della tabella
         const { data, error } = await supabase
-          .from('information_schema.tables')
-          .select('table_name')
-          .eq('table_schema', 'public')
-          .eq('table_name', 'profiles');
+          .from('profiles')
+          .select('id')
+          .limit(1)
+          .maybeSingle();
         
-        if (error) {
-          console.error('Errore nella verifica della tabella profiles:', error);
+        // Se c'è un errore del tipo "relation does not exist", allora la tabella non esiste
+        if (error && error.message.includes('relation') && error.message.includes('does not exist')) {
+          console.log('Tabella profiles non trovata:', error.message);
           setProfilesTableExists(false);
           return;
         }
         
-        setProfilesTableExists(data && data.length > 0);
+        setProfilesTableExists(true);
       } catch (error) {
         console.error('Errore nella verifica della tabella profiles:', error);
         setProfilesTableExists(false);
