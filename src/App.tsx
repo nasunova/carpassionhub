@@ -39,36 +39,40 @@ const Layout = ({ children }: { children: React.ReactNode }) => (
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <TooltipProvider>
         <AuthProvider>
           <Toaster />
           <Sonner />
-          <Layout>
-            <AnimatePresence mode="wait">
-              <Suspense fallback={<PageLoading />}>
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/garage" element={<Garage />} />
-                    <Route path="/events" element={<Events />} />
-                    <Route path="/roads" element={<Roads />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/auth" element={<Auth />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </motion.div>
-              </Suspense>
-            </AnimatePresence>
-          </Layout>
+          <AnimatePresence mode="wait">
+            <Suspense fallback={<PageLoading />}>
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route path="*" element={
+                  <Layout>
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <Routes>
+                        <Route path="/" element={<Index />} />
+                        <Route path="/garage" element={<Garage />} />
+                        <Route path="/events" element={<Events />} />
+                        <Route path="/roads" element={<Roads />} />
+                        <Route path="/profile" element={<Profile />} />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </motion.div>
+                  </Layout>
+                } />
+              </Routes>
+            </Suspense>
+          </AnimatePresence>
         </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+      </TooltipProvider>
+    </BrowserRouter>
   </QueryClientProvider>
 );
 

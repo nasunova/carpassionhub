@@ -11,11 +11,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
 
 const Auth = () => {
   // Auth context
   const { user, loading: authLoading, signIn, signUp } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   
   // Login and register form data
   const [loginData, setLoginData] = useState({
@@ -38,14 +40,23 @@ const Auth = () => {
   const [loginError, setLoginError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [localLoading, setLocalLoading] = useState(true);
   
-  // Redirect if already logged in
+  // Redirect if already logged in and handle initial loading
   useEffect(() => {
     console.log("Auth page - checking user state:", user);
-    if (user) {
-      console.log("Auth page - user found, redirecting to garage");
-      navigate('/garage');
-    }
+
+    // Add a small delay to ensure context is fully initialized
+    const timer = setTimeout(() => {
+      setLocalLoading(false);
+      
+      if (user) {
+        console.log("Auth page - user found, redirecting to garage");
+        navigate('/garage');
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
   }, [user, navigate]);
   
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,7 +74,7 @@ const Auth = () => {
       ...prev,
       [id === 'name' ? 'name' : 
         id === 'register-email' ? 'email' : 
-        id === 'register-password' ? 'password' : 'confirm-password']: value
+        id === 'register-password' ? 'password' : 'confirmPassword']: value
     }));
     
     if (id === 'register-password' || id === 'confirm-password') {
@@ -85,8 +96,18 @@ const Auth = () => {
     try {
       console.log("Tentativo login con:", loginData.email);
       await signIn(loginData.email, loginData.password);
-      console.log("Login completato, l'utente dovrebbe essere reindirizzato automaticamente");
-      navigate('/garage');
+      
+      // Show success toast
+      toast({
+        title: "Login effettuato",
+        description: "Accesso effettuato con successo. Redirezione in corso...",
+      });
+      
+      // Force navigation after a short delay
+      setTimeout(() => {
+        navigate('/garage', { replace: true });
+      }, 300);
+      
     } catch (error: any) {
       console.error("Errore durante il login:", error);
       setLoginError(error.message || 'Errore durante l\'accesso. Riprova più tardi.');
@@ -142,8 +163,18 @@ const Auth = () => {
     try {
       console.log("Tentativo registrazione con:", registerData.email);
       await signUp(registerData.email, registerData.password, registerData.name);
-      console.log("Registrazione completata, l'utente dovrebbe essere reindirizzato automaticamente");
-      navigate('/garage');
+      
+      // Show success toast
+      toast({
+        title: "Registrazione completata",
+        description: "Account creato con successo. Redirezione in corso...",
+      });
+      
+      // Force navigation after a short delay
+      setTimeout(() => {
+        navigate('/garage', { replace: true });
+      }, 300);
+      
     } catch (error: any) {
       console.error("Errore durante la registrazione:", error);
       setRegistrationError(error.message || 'Errore durante la registrazione. Riprova più tardi.');
@@ -152,8 +183,8 @@ const Auth = () => {
     }
   };
   
-  // If auth is still initializing, show a loading indicator
-  if (authLoading) {
+  // If auth is still initializing or we're in local loading state, show a loading indicator
+  if (authLoading || localLoading) {
     return (
       <div className="container mx-auto px-4 py-12 flex justify-center items-center min-h-[80vh]">
         <div className="text-center">
