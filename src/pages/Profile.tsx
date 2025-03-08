@@ -51,6 +51,14 @@ const Profile = () => {
 
           if (error) {
             console.error('Error fetching profile:', error);
+            
+            // If profile not found (PGRST116 error), create it
+            if (error.code === 'PGRST116') {
+              console.log('Profile not found, creating new profile');
+              await createNewProfile(user);
+              return; // The AuthContext will handle initialization
+            }
+            
             toast({
               title: 'Errore',
               description: 'Impossibile caricare i dati del profilo',
@@ -78,6 +86,51 @@ const Profile = () => {
     }
   }, [user, toast]);
 
+  // Function to create a new profile
+  const createNewProfile = async (userData: any) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .insert({
+          id: userData.id,
+          full_name: userData.full_name || '',
+          avatar_url: userData.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.full_name || userData.email)}&background=random`,
+          email: userData.email,
+          badges: ['Nuovo Membro'],
+          stats: {
+            followers: 0,
+            following: 0,
+            events: 0,
+            roads: 0
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('Error creating profile:', error);
+        toast({
+          title: 'Errore',
+          description: 'Impossibile creare il profilo',
+          variant: 'destructive',
+        });
+        return false;
+      }
+
+      toast({
+        title: 'Profilo creato',
+        description: 'Il tuo profilo è stato creato con successo',
+      });
+
+      // Refresh the page to load the new profile
+      window.location.reload();
+      return true;
+    } catch (error) {
+      console.error('Error creating profile:', error);
+      return false;
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -89,6 +142,15 @@ const Profile = () => {
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
+      // If profile doesn't exist, create it first
+      if (!profileData) {
+        const created = await createNewProfile(user);
+        if (!created) {
+          setLoading(false);
+          return;
+        }
+      }
+
       // Update profile in Supabase
       const { error } = await supabase
         .from('profiles')

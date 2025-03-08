@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, isSupabaseAvailable, initializeProfileExtras } from '@/lib/supabase';
@@ -61,6 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (data?.user) {
           console.info("User found:", data.user.id);
+          
           // Get profile data
           const { data: profile, error: profileError } = await supabase!
             .from('profiles')
@@ -68,10 +68,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .eq('id', data.user.id)
             .single();
           
-          if (profileError && profileError.code !== 'PGRST116') {
+          if (profileError) {
             console.error("Error fetching profile:", profileError);
+            
+            // If profile doesn't exist, create it
+            if (profileError.code === 'PGRST116') {
+              console.log("Profile doesn't exist, creating it...");
+              await createInitialProfile(data.user);
+            }
           }
           
+          // Set user with available data
           setUser({
             id: data.user.id,
             email: data.user.email!,
@@ -79,11 +86,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             avatar_url: profile?.avatar_url || data.user.user_metadata?.avatar_url,
             created_at: data.user.created_at!,
           });
-
-          // Initialize profile extras if needed
-          if (profile && (!profile.stats || !profile.badges)) {
-            await initializeProfileExtras(data.user.id);
-          }
         } else {
           console.info("No user found in session");
           setUser(null);
@@ -113,10 +115,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               .eq('id', session.user.id)
               .single();
             
-            if (profileError && profileError.code !== 'PGRST116') {
+            if (profileError) {
               console.error("Error fetching profile:", profileError);
+              
+              // If profile doesn't exist, create it
+              if (profileError.code === 'PGRST116') {
+                console.log("Profile doesn't exist on auth state change, creating it...");
+                await createInitialProfile(session.user);
+              }
             }
             
+            // Set user with available data
             setUser({
               id: session.user.id,
               email: session.user.email!,
@@ -124,11 +133,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               avatar_url: profile?.avatar_url || session.user.user_metadata?.avatar_url,
               created_at: session.user.created_at!,
             });
-
-            // Initialize profile extras if needed
-            if (profile && (!profile.stats || !profile.badges)) {
-              await initializeProfileExtras(session.user.id);
-            }
             
             // Automatically navigate to garage on successful authentication
             if (event === 'SIGNED_IN') {
@@ -150,6 +154,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
+    // Helper function to create initial profile
+    const createInitialProfile = async (user: any) => {
+      try {
+        const { error } = await supabase!.from('profiles').insert({
+          id: user.id,
+          full_name: user.user_metadata?.full_name || '',
+          avatar_url: user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.user_metadata?.full_name || '')}&background=random`,
+          email: user.email,
+          badges: ['Nuovo Membro'],
+          stats: {
+            followers: 0,
+            following: 0,
+            events: 0,
+            roads: 0
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+        
+        if (error) {
+          console.error("Error creating initial profile:", error);
+          return false;
+        }
+        
+        console.log("Initial profile created successfully for user:", user.id);
+        return true;
+      } catch (error) {
+        console.error("Error creating initial profile:", error);
+        return false;
+      }
+    };
+
     // Perform initial check
     checkUser();
 
@@ -157,7 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription?.unsubscribe();
       clearTimeout(loadingTimeout);
     };
-  }, [navigate]);
+  }, [navigate, toast]);
 
   // Sign in function
   const signIn = async (email: string, password: string) => {
