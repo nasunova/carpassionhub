@@ -55,6 +55,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: user.email!,
             full_name: profile?.full_name || user.user_metadata?.full_name,
             avatar_url: profile?.avatar_url || user.user_metadata?.avatar_url,
+            bio: profile?.bio || '',
+            location: profile?.location || '',
             created_at: user.created_at!,
           });
         }
@@ -81,6 +83,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: session.user.email!,
             full_name: profile?.full_name || session.user.user_metadata?.full_name,
             avatar_url: profile?.avatar_url || session.user.user_metadata?.avatar_url,
+            bio: profile?.bio || '',
+            location: profile?.location || '',
             created_at: session.user.created_at!,
           });
         } else {
@@ -120,6 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       navigate('/garage');
     } catch (error: any) {
+      console.error("Errore di login:", error);
       let errorMessage = "Si è verificato un errore durante il login.";
       
       if (error.message === "Invalid login credentials") {

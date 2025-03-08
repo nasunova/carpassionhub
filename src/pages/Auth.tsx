@@ -13,7 +13,7 @@ import { Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Auth = () => {
-  const { user, loading, signIn, signUp } = useAuth();
+  const { user, loading: authLoading, signIn, signUp } = useAuth();
   const navigate = useNavigate();
   
   const [loginData, setLoginData] = useState({
@@ -35,10 +35,10 @@ const Auth = () => {
   
   // Redirect if already logged in
   useEffect(() => {
-    if (user && !loading) {
+    if (user && !authLoading) {
       navigate('/garage');
     }
-  }, [user, loading, navigate]);
+  }, [user, authLoading, navigate]);
   
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -76,7 +76,9 @@ const Auth = () => {
     
     try {
       await signIn(loginData.email, loginData.password);
+      // Il redirect viene gestito all'interno di signIn
     } catch (error: any) {
+      console.error("Errore durante il login:", error);
       setLoginError(error.message || 'Errore durante l\'accesso. Riprova più tardi.');
     } finally {
       setIsSubmitting(false);
@@ -129,14 +131,16 @@ const Auth = () => {
     setIsSubmitting(true);
     try {
       await signUp(registerData.email, registerData.password, registerData.name);
+      // Il redirect viene gestito all'interno di signUp
     } catch (error: any) {
+      console.error("Errore durante la registrazione:", error);
       setRegistrationError(error.message || 'Errore durante la registrazione. Riprova più tardi.');
     } finally {
       setIsSubmitting(false);
     }
   };
   
-  if (loading) {
+  if (authLoading && !isSubmitting) {
     return (
       <div className="container mx-auto px-4 py-12 flex justify-center items-center min-h-[80vh]">
         <div className="flex flex-col items-center">
