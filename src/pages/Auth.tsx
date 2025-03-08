@@ -36,6 +36,7 @@ const Auth = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (user && !authLoading) {
+      console.log("Utente già autenticato, redirect a /garage");
       navigate('/garage');
     }
   }, [user, authLoading, navigate]);
@@ -75,7 +76,9 @@ const Auth = () => {
     setLoginError('');
     
     try {
+      console.log("Tentativo login con:", loginData.email);
       await signIn(loginData.email, loginData.password);
+      console.log("Login completato");
       // Non facciamo navigate qui, lo fa la funzione signIn
     } catch (error: any) {
       console.error("Errore durante il login:", error);
@@ -130,7 +133,9 @@ const Auth = () => {
     
     setIsSubmitting(true);
     try {
+      console.log("Tentativo registrazione con:", registerData.email);
       await signUp(registerData.email, registerData.password, registerData.name);
+      console.log("Registrazione completata");
       // Non facciamo navigate qui, lo fa la funzione signUp
     } catch (error: any) {
       console.error("Errore durante la registrazione:", error);

@@ -70,6 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Configura il listener per i cambiamenti di autenticazione
     const { data: { subscription } } = supabase!.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("Auth state changed:", event, session?.user?.id);
         if (session && session.user) {
           // Ottieni i dati del profilo
           const { data: profile } = await supabase!
@@ -112,22 +113,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     try {
-      // Impostiamo loading a true solo qui, non nel contesto globale
-      // per evitare di bloccare l'interfaccia
+      console.log("Tentativo di login per:", email);
+      
+      // Effettua il login
       const { error, data } = await supabase!.auth.signInWithPassword({ email, password });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Errore autenticazione:", error);
+        throw error;
+      }
       
       // Verifichiamo che l'utente sia effettivamente loggato
       if (!data?.user) {
+        console.error("Nessun utente restituito dopo il login");
         throw new Error("Login fallito. Nessun utente restituito.");
       }
+      
+      console.log("Login completato con successo");
+      
+      // Ottieni i dati del profilo
+      const { data: profile } = await supabase!
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+      
+      // Impostiamo manualmente l'utente per garantire che l'interfaccia si aggiorni subito
+      setUser({
+        id: data.user.id,
+        email: data.user.email!,
+        full_name: profile?.full_name || data.user.user_metadata?.full_name,
+        avatar_url: profile?.avatar_url || data.user.user_metadata?.avatar_url,
+        bio: profile?.bio || '',
+        location: profile?.location || '',
+        created_at: data.user.created_at!,
+      });
       
       toast({
         title: "Login effettuato",
         description: "Benvenuto su CarPassionHub!",
       });
       
+      // Facciamo subito il redirect
       navigate('/garage');
     } catch (error: any) {
       console.error("Errore di login:", error);
@@ -158,6 +185,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     try {
+      console.log("Tentativo di registrazione per:", email);
+      
       // Controlla che la password sia valida
       if (password.length < 6) {
         throw new Error("La password deve contenere almeno 6 caratteri.");
@@ -182,9 +211,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Errore registrazione:", error);
+        throw error;
+      }
       
       if (data.user) {
+        console.log("Registrazione completata, creazione profilo");
+        
         // Crea il profilo nella tabella profiles
         await supabase!.from('profiles').insert([
           {
@@ -195,10 +229,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           },
         ]);
         
+        console.log("Profilo creato, effettuo login automatico");
+        
         // Effettua il login automaticamente dopo la registrazione
-        await supabase!.auth.signInWithPassword({
+        const { error: loginError, data: loginData } = await supabase!.auth.signInWithPassword({
           email,
           password
+        });
+        
+        if (loginError) {
+          console.error("Errore login post-registrazione:", loginError);
+          throw loginError;
+        }
+        
+        // Impostiamo manualmente l'utente
+        setUser({
+          id: data.user.id,
+          email: data.user.email!,
+          full_name: fullName,
+          avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=random`,
+          bio: '',
+          location: '',
+          created_at: data.user.created_at!,
         });
         
         toast({
@@ -209,6 +261,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         navigate('/garage');
       }
     } catch (error: any) {
+      console.error("Errore di registrazione:", error);
       let errorMessage = "Si è verificato un errore durante la registrazione.";
       
       if (error.message.includes("weak_password")) {
