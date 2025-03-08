@@ -9,13 +9,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
 
 const Auth = () => {
-  const { user, loading, signIn, signUp } = useAuth();
+  // Auth context
+  const { user, loading: authLoading, signIn, signUp } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   
+  // Login and register form data
   const [loginData, setLoginData] = useState({
     email: '',
     password: '',
@@ -28,17 +32,39 @@ const Auth = () => {
     confirmPassword: '',
   });
   
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Form states
+  const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
+  const [isSubmittingRegister, setIsSubmittingRegister] = useState(false);
   const [passwordsMatch, setPasswordsMatch] = useState(true);
   const [registrationError, setRegistrationError] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [localLoading, setLocalLoading] = useState(true);
   
-  // Redirect if already logged in
+  // Reset the auth page on mount to avoid getting stuck
   useEffect(() => {
-    if (user && !loading) {
-      navigate('/garage');
-    }
-  }, [user, loading, navigate]);
+    // Clear any previous errors and reset loading states
+    setLoginError('');
+    setRegistrationError('');
+    setIsSubmittingLogin(false);
+    setIsSubmittingRegister(false);
+    setLocalLoading(true);
+    
+    console.log("Auth page - checking user state:", user);
+
+    // Add a small delay to ensure context is fully initialized
+    const timer = setTimeout(() => {
+      setLocalLoading(false);
+      
+      if (user) {
+        console.log("Auth page - user found, redirecting to garage");
+        navigate('/garage', { replace: true });
+      }
+    }, 800); // Slightly longer delay to ensure context is loaded
+    
+    return () => clearTimeout(timer);
+  }, [user, navigate]);
   
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -69,17 +95,30 @@ const Auth = () => {
   
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return;
+    if (isSubmittingLogin) return;
     
-    setIsSubmitting(true);
+    setIsSubmittingLogin(true);
     setLoginError('');
     
     try {
+      console.log("Tentativo login con:", loginData.email);
       await signIn(loginData.email, loginData.password);
+      
+      // Show success toast
+      toast({
+        title: "Login effettuato",
+        description: "Accesso effettuato con successo. Redirezione in corso...",
+      });
+      
+      // Force navigation after a short delay - this helps avoid the stuck state
+      setTimeout(() => {
+        navigate('/garage', { replace: true });
+      }, 500);
+      
     } catch (error: any) {
+      console.error("Errore durante il login:", error);
       setLoginError(error.message || 'Errore durante l\'accesso. Riprova più tardi.');
-    } finally {
-      setIsSubmitting(false);
+      setIsSubmittingLogin(false);
     }
   };
   
@@ -100,7 +139,7 @@ const Auth = () => {
   
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return;
+    if (isSubmittingRegister) return;
     
     // Reset errors
     setRegistrationError('');
@@ -126,22 +165,36 @@ const Auth = () => {
       return;
     }
     
-    setIsSubmitting(true);
+    setIsSubmittingRegister(true);
     try {
+      console.log("Tentativo registrazione con:", registerData.email);
       await signUp(registerData.email, registerData.password, registerData.name);
+      
+      // Show success toast
+      toast({
+        title: "Registrazione completata",
+        description: "Account creato con successo. Redirezione in corso...",
+      });
+      
+      // Force navigation after a short delay - this helps avoid the stuck state
+      setTimeout(() => {
+        navigate('/garage', { replace: true });
+      }, 500);
+      
     } catch (error: any) {
+      console.error("Errore durante la registrazione:", error);
       setRegistrationError(error.message || 'Errore durante la registrazione. Riprova più tardi.');
-    } finally {
-      setIsSubmitting(false);
+      setIsSubmittingRegister(false);
     }
   };
   
-  if (loading) {
+  // Show clear loading state when waiting for auth to initialize
+  if (authLoading || localLoading) {
     return (
       <div className="container mx-auto px-4 py-12 flex justify-center items-center min-h-[80vh]">
-        <div className="flex flex-col items-center">
-          <Loader2 className="h-10 w-10 animate-spin text-racing-red" />
-          <p className="mt-4 text-muted-foreground">Caricamento...</p>
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-racing-red" />
+          <p className="mt-4 text-muted-foreground">Caricamento in corso...</p>
         </div>
       </div>
     );
@@ -187,17 +240,30 @@ const Auth = () => {
                   
                   <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input 
-                      id="password" 
-                      type="password" 
-                      value={loginData.password}
-                      onChange={handleLoginChange}
-                      required 
-                    />
+                    <div className="relative">
+                      <Input 
+                        id="password" 
+                        type={showPassword ? "text" : "password"}
+                        value={loginData.password}
+                        onChange={handleLoginChange}
+                        required 
+                      />
+                      <button 
+                        type="button"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? (
+                  <Button type="submit" className="w-full" disabled={isSubmittingLogin}>
+                    {isSubmittingLogin ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Accesso in corso...
@@ -241,13 +307,26 @@ const Auth = () => {
                   
                   <div className="space-y-2">
                     <Label htmlFor="register-password">Password</Label>
-                    <Input 
-                      id="register-password" 
-                      type="password" 
-                      value={registerData.password}
-                      onChange={handleRegisterChange}
-                      required 
-                    />
+                    <div className="relative">
+                      <Input 
+                        id="register-password" 
+                        type={showPassword ? "text" : "password"}
+                        value={registerData.password}
+                        onChange={handleRegisterChange}
+                        required 
+                      />
+                      <button 
+                        type="button"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </button>
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       La password deve contenere almeno 6 caratteri.
                     </p>
@@ -257,14 +336,27 @@ const Auth = () => {
                     <Label htmlFor="confirm-password" className={!passwordsMatch ? "text-red-500" : ""}>
                       Conferma Password
                     </Label>
-                    <Input 
-                      id="confirm-password" 
-                      type="password" 
-                      value={registerData.confirmPassword}
-                      onChange={handleRegisterChange}
-                      className={!passwordsMatch ? "border-red-500 focus-visible:ring-red-500" : ""}
-                      required 
-                    />
+                    <div className="relative">
+                      <Input 
+                        id="confirm-password" 
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={registerData.confirmPassword}
+                        onChange={handleRegisterChange}
+                        className={!passwordsMatch ? "border-red-500 focus-visible:ring-red-500" : ""}
+                        required 
+                      />
+                      <button 
+                        type="button"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </button>
+                    </div>
                     {!passwordsMatch && (
                       <p className="text-red-500 text-sm mt-1">Le password non coincidono</p>
                     )}
@@ -273,9 +365,9 @@ const Auth = () => {
                   <Button 
                     type="submit" 
                     className="w-full" 
-                    disabled={isSubmitting || !passwordsMatch}
+                    disabled={isSubmittingRegister || !passwordsMatch}
                   >
-                    {isSubmitting ? (
+                    {isSubmittingRegister ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Creazione account...
