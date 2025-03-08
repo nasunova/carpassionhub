@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, UserProfile } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,12 +20,10 @@ const EditProfileForm = ({ onCancel, initialData }: EditProfileFormProps) => {
   const { user, updateProfile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  
-  // Initialize with fallbacks to avoid null/undefined issues
   const [formData, setFormData] = useState({
     full_name: initialData?.full_name || user?.full_name || '',
-    bio: initialData?.bio || user?.bio || '',
-    location: initialData?.location || user?.location || '',
+    bio: initialData?.bio || '',
+    location: initialData?.location || '',
     avatar_url: user?.avatar_url || '',
   });
 
@@ -36,33 +34,18 @@ const EditProfileForm = ({ onCancel, initialData }: EditProfileFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      toast({
-        title: "Errore",
-        description: "Devi essere autenticato per modificare il profilo.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     setLoading(true);
 
     try {
       await updateProfile({
-        full_name: formData.full_name,
-        bio: formData.bio,
-        location: formData.location,
-        avatar_url: formData.avatar_url,
+        ...formData as Partial<UserProfile>,
       });
-      
       toast({
         title: "Profilo aggiornato",
         description: "Le modifiche al profilo sono state salvate con successo.",
       });
-      
       onCancel(); // Chiude il form dopo il salvataggio
     } catch (error: any) {
-      console.error("Errore durante l'aggiornamento del profilo:", error);
       toast({
         title: "Errore",
         description: error.message || "Si è verificato un errore durante l'aggiornamento del profilo.",
