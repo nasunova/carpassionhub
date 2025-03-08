@@ -42,8 +42,15 @@ const Auth = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [localLoading, setLocalLoading] = useState(true);
   
-  // Redirect if already logged in and handle initial loading
+  // Reset the auth page on mount to avoid getting stuck
   useEffect(() => {
+    // Clear any previous errors and reset loading states
+    setLoginError('');
+    setRegistrationError('');
+    setIsSubmittingLogin(false);
+    setIsSubmittingRegister(false);
+    setLocalLoading(true);
+    
     console.log("Auth page - checking user state:", user);
 
     // Add a small delay to ensure context is fully initialized
@@ -52,9 +59,9 @@ const Auth = () => {
       
       if (user) {
         console.log("Auth page - user found, redirecting to garage");
-        navigate('/garage');
+        navigate('/garage', { replace: true });
       }
-    }, 500);
+    }, 800); // Slightly longer delay to ensure context is loaded
     
     return () => clearTimeout(timer);
   }, [user, navigate]);
@@ -103,15 +110,14 @@ const Auth = () => {
         description: "Accesso effettuato con successo. Redirezione in corso...",
       });
       
-      // Force navigation after a short delay
+      // Force navigation after a short delay - this helps avoid the stuck state
       setTimeout(() => {
         navigate('/garage', { replace: true });
-      }, 300);
+      }, 500);
       
     } catch (error: any) {
       console.error("Errore durante il login:", error);
       setLoginError(error.message || 'Errore durante l\'accesso. Riprova più tardi.');
-    } finally {
       setIsSubmittingLogin(false);
     }
   };
@@ -170,20 +176,19 @@ const Auth = () => {
         description: "Account creato con successo. Redirezione in corso...",
       });
       
-      // Force navigation after a short delay
+      // Force navigation after a short delay - this helps avoid the stuck state
       setTimeout(() => {
         navigate('/garage', { replace: true });
-      }, 300);
+      }, 500);
       
     } catch (error: any) {
       console.error("Errore durante la registrazione:", error);
       setRegistrationError(error.message || 'Errore durante la registrazione. Riprova più tardi.');
-    } finally {
       setIsSubmittingRegister(false);
     }
   };
   
-  // If auth is still initializing or we're in local loading state, show a loading indicator
+  // Show clear loading state when waiting for auth to initialize
   if (authLoading || localLoading) {
     return (
       <div className="container mx-auto px-4 py-12 flex justify-center items-center min-h-[80vh]">

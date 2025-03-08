@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { useAuth, UserProfile } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,10 +20,12 @@ const EditProfileForm = ({ onCancel, initialData }: EditProfileFormProps) => {
   const { user, updateProfile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  
+  // Initialize with fallbacks to avoid null/undefined issues
   const [formData, setFormData] = useState({
     full_name: initialData?.full_name || user?.full_name || '',
-    bio: initialData?.bio || '',
-    location: initialData?.location || '',
+    bio: initialData?.bio || user?.bio || '',
+    location: initialData?.location || user?.location || '',
     avatar_url: user?.avatar_url || '',
   });
 
@@ -34,6 +36,15 @@ const EditProfileForm = ({ onCancel, initialData }: EditProfileFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      toast({
+        title: "Errore",
+        description: "Devi essere autenticato per modificare il profilo.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setLoading(true);
 
     try {

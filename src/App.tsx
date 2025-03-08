@@ -19,7 +19,14 @@ const Profile = lazy(() => import("./pages/Profile"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30000,
+    },
+  },
+});
 
 // Loading component
 const PageLoading = () => (
@@ -47,7 +54,10 @@ const App = () => (
           <AnimatePresence mode="wait">
             <Suspense fallback={<PageLoading />}>
               <Routes>
+                {/* Auth route is separate from main layout */}
                 <Route path="/auth" element={<Auth />} />
+                
+                {/* All other routes use the main layout */}
                 <Route path="*" element={
                   <Layout>
                     <motion.div
