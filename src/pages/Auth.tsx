@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { BlurredCard } from '@/components/ui/BlurredCard';
 import AnimatedTransition from '@/components/AnimatedTransition';
@@ -34,6 +33,13 @@ const Auth = () => {
   const [registrationError, setRegistrationError] = useState('');
   const [loginError, setLoginError] = useState('');
   const [forceReady, setForceReady] = useState(false);
+  const [renderCount, setRenderCount] = useState(0);
+  
+  // Track component renders to help diagnose issues
+  useEffect(() => {
+    setRenderCount(prev => prev + 1);
+    console.info(`Auth page rendered ${renderCount + 1} times`);
+  }, []);
   
   // Force the page to become interactive after a timeout
   useEffect(() => {
@@ -41,17 +47,19 @@ const Auth = () => {
     const timeout = setTimeout(() => {
       console.info("Auth page - forcing ready state after timeout");
       setForceReady(true);
-    }, 3000);
+    }, 2000); // Reduced timeout to 2 seconds
     
     return () => clearTimeout(timeout);
   }, []);
   
   // Redirect if already logged in
   useEffect(() => {
+    console.info("Auth page - checking user state:", { user: !!user, loading, forceReady });
     if (user && !loading) {
+      console.info("User is logged in, redirecting to garage");
       navigate('/garage');
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, forceReady]);
   
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -88,9 +96,11 @@ const Auth = () => {
     setLoginError('');
     
     try {
+      console.info("Attempting login with email:", loginData.email);
       await signIn(loginData.email, loginData.password);
-      // No need for navigation here as the AuthContext will handle it
+      // AuthContext handles navigation after successful login
     } catch (error: any) {
+      console.error("Login error:", error);
       setLoginError(error.message || 'Errore durante l\'accesso. Riprova più tardi.');
     } finally {
       setIsSubmitting(false);
@@ -142,9 +152,11 @@ const Auth = () => {
     
     setIsSubmitting(true);
     try {
+      console.info("Attempting registration with email:", registerData.email);
       await signUp(registerData.email, registerData.password, registerData.name);
-      // No need for navigation here as the AuthContext will handle it
+      // AuthContext handles navigation after successful signup
     } catch (error: any) {
+      console.error("Registration error:", error);
       setRegistrationError(error.message || 'Errore durante la registrazione. Riprova più tardi.');
     } finally {
       setIsSubmitting(false);
@@ -152,16 +164,17 @@ const Auth = () => {
   };
   
   const handleRefresh = () => {
+    console.info("User requested page refresh");
     window.location.reload();
   };
   
   // Show a refresh button if loading takes too long
-  if (loading && !forceReady) {
+  if ((loading && !forceReady) || (!user && !forceReady && loading)) {
     return (
       <div className="container mx-auto px-4 py-12 flex justify-center items-center min-h-[80vh]">
         <div className="flex flex-col items-center">
           <Loader2 className="h-10 w-10 animate-spin text-racing-red" />
-          <p className="mt-4 text-muted-foreground">Caricamento...</p>
+          <p className="mt-4 text-muted-foreground">Verifica autenticazione in corso...</p>
           <Button 
             variant="outline" 
             className="mt-4"
@@ -174,6 +187,9 @@ const Auth = () => {
       </div>
     );
   }
+  
+  // Show a ready message if debugging
+  console.info("Auth page ready to render form content");
   
   return (
     <AnimatedTransition>

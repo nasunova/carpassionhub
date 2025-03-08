@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, isSupabaseAvailable } from '@/lib/supabase';
@@ -31,36 +30,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (!isSupabaseAvailable()) {
+      console.warn("Supabase is not available. Authentication will not work.");
       setLoading(false);
       return;
     }
 
     // Force a timeout to prevent indefinite loading state
     const loadingTimeout = setTimeout(() => {
+      console.info("Authentication check timed out - forcing ready state");
       setLoading(false);
-    }, 5000);
+    }, 3000);
 
     // Check if the user is already authenticated
     const checkUser = async () => {
-      console.info("Controllo stato autenticazione iniziale...");
+      console.info("Checking initial authentication state...");
       try {
-        const { data: { user } } = await supabase!.auth.getUser();
+        const { data, error } = await supabase!.auth.getUser();
         
-        if (user) {
+        if (error) {
+          console.error("Error getting user:", error.message);
+          setLoading(false);
+          clearTimeout(loadingTimeout);
+          return;
+        }
+        
+        if (data?.user) {
+          console.info("User found:", data.user.id);
           // Get profile data
-          const { data: profile } = await supabase!
+          const { data: profile, error: profileError } = await supabase!
             .from('profiles')
             .select('*')
-            .eq('id', user.id)
+            .eq('id', data.user.id)
             .single();
           
+          if (profileError && profileError.code !== 'PGRST116') {
+            console.error("Error fetching profile:", profileError);
+          }
+          
           setUser({
-            id: user.id,
-            email: user.email!,
-            full_name: profile?.full_name || user.user_metadata?.full_name,
-            avatar_url: profile?.avatar_url || user.user_metadata?.avatar_url,
-            created_at: user.created_at!,
+            id: data.user.id,
+            email: data.user.email!,
+            full_name: profile?.full_name || data.user.user_metadata?.full_name,
+            avatar_url: profile?.avatar_url || data.user.user_metadata?.avatar_url,
+            created_at: data.user.created_at!,
           });
+        } else {
+          console.info("No user found in session");
+          setUser(null);
         }
       } catch (error) {
         console.error('Error checking user:', error);
@@ -71,40 +87,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // Set up the listener for authentication changes
-    console.info("Configurazione listener cambiamenti autenticazione");
+    console.info("Setting up auth state change listener");
     const { data: { subscription } } = supabase!.auth.onAuthStateChange(
       async (event, session) => {
         console.info("Auth state changed:", event, session?.user?.id);
+        
+        clearTimeout(loadingTimeout);
+        
         if (session && session.user) {
-          // Get profile data
-          const { data: profile } = await supabase!
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          setUser({
-            id: session.user.id,
-            email: session.user.email!,
-            full_name: profile?.full_name || session.user.user_metadata?.full_name,
-            avatar_url: profile?.avatar_url || session.user.user_metadata?.avatar_url,
-            created_at: session.user.created_at!,
-          });
+          try {
+            // Get profile data
+            const { data: profile, error: profileError } = await supabase!
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+            
+            if (profileError && profileError.code !== 'PGRST116') {
+              console.error("Error fetching profile:", profileError);
+            }
+            
+            setUser({
+              id: session.user.id,
+              email: session.user.email!,
+              full_name: profile?.full_name || session.user.user_metadata?.full_name,
+              avatar_url: profile?.avatar_url || session.user.user_metadata?.avatar_url,
+              created_at: session.user.created_at!,
+            });
+            
+            // Automatically navigate to garage on successful authentication
+            if (event === 'SIGNED_IN') {
+              navigate('/garage');
+            }
+          } catch (error) {
+            console.error("Error processing auth state change:", error);
+          }
         } else {
           setUser(null);
+          
+          // Navigate to home on sign out
+          if (event === 'SIGNED_OUT') {
+            navigate('/');
+          }
         }
+        
         setLoading(false);
-        clearTimeout(loadingTimeout);
       }
     );
 
+    // Perform initial check
     checkUser();
 
     return () => {
       subscription.unsubscribe();
       clearTimeout(loadingTimeout);
     };
-  }, []);
+  }, [navigate]);
 
   const signIn = async (email: string, password: string) => {
     if (!isSupabaseAvailable()) {
