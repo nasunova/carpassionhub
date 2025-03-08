@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { BlurredCard } from '@/components/ui/BlurredCard';
 import AnimatedTransition from '@/components/AnimatedTransition';
@@ -101,7 +102,7 @@ const Profile = () => {
       
       setIsLoadingCars(true);
       try {
-        // Fetch cars from Supabase
+        // Fetch cars from Supabase with all required fields
         const { data, error } = await supabase
           .from('cars')
           .select(`
@@ -110,6 +111,10 @@ const Profile = () => {
             model, 
             year, 
             description,
+            power,
+            engine,
+            transmission,
+            drivetrain,
             car_images (image_url)
           `)
           .eq('owner_id', user.id);
@@ -122,7 +127,7 @@ const Profile = () => {
           make: car.make,
           model: car.model,
           year: car.year,
-          images: car.car_images ? car.car_images.map((img: any) => img.image_url) : [car.image || 'https://placehold.co/600x400?text=No+Image'],
+          images: car.car_images ? car.car_images.map((img: any) => img.image_url) : [],
           specs: {
             power: car.power || 'N/A',
             engine: car.engine || 'N/A',

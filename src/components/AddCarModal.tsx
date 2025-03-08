@@ -19,7 +19,7 @@ interface AddCarModalProps {
 const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [carData, setCarData] = useState({
+  const [formData, setFormData] = useState({
     make: "",
     model: "",
     year: new Date().getFullYear(),
@@ -33,7 +33,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setCarData((prev) => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: name === "year" ? parseInt(value) || new Date().getFullYear() : value,
     }));
@@ -51,7 +51,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
       return;
     }
     
-    if (!carData.make || !carData.model || !carData.image) {
+    if (!formData.make || !formData.model || !formData.image) {
       toast({
         title: "Campi mancanti",
         description: "Compila tutti i campi obbligatori.",
@@ -77,18 +77,18 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
       }
 
       // Insert car into database
-      const { data: carData, error: carError } = await supabase!
+      const { data: insertedCar, error: carError } = await supabase!
         .from("cars")
         .insert([
           {
-            make: carData.make,
-            model: carData.model,
-            year: carData.year,
-            description: carData.description,
-            power: carData.power,
-            engine: carData.engine,
-            transmission: carData.transmission,
-            drivetrain: carData.drivetrain,
+            make: formData.make,
+            model: formData.model,
+            year: formData.year,
+            description: formData.description,
+            power: formData.power,
+            engine: formData.engine,
+            transmission: formData.transmission,
+            drivetrain: formData.drivetrain,
             owner_id: user.id,
             owner_name: user.user_metadata.full_name || "Utente",
             owner_avatar: user.user_metadata.avatar_url || "https://randomuser.me/api/portraits/men/32.jpg",
@@ -104,8 +104,8 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
         .from("car_images")
         .insert([
           {
-            car_id: carData.id,
-            image_url: carData.image,
+            car_id: insertedCar.id,
+            image_url: formData.image,
             is_primary: true
           },
         ]);
@@ -117,16 +117,16 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
 
       toast({
         title: "Auto aggiunta!",
-        description: `${carData.make} ${carData.model} è stata aggiunta al tuo garage.`,
+        description: `${formData.make} ${formData.model} è stata aggiunta al tuo garage.`,
       });
 
       onCarAdded({
-        ...carData,
-        image: carData.image
+        ...insertedCar,
+        image: formData.image
       });
       
       // Reset form
-      setCarData({
+      setFormData({
         make: "",
         model: "",
         year: new Date().getFullYear(),
@@ -177,7 +177,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
                 <Input
                   id="make"
                   name="make"
-                  value={carData.make}
+                  value={formData.make}
                   onChange={handleInputChange}
                   className="col-span-3"
                   required
@@ -190,7 +190,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
                 <Input
                   id="model"
                   name="model"
-                  value={carData.model}
+                  value={formData.model}
                   onChange={handleInputChange}
                   className="col-span-3"
                   required
@@ -204,7 +204,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
                   id="year"
                   name="year"
                   type="number"
-                  value={carData.year}
+                  value={formData.year}
                   onChange={handleInputChange}
                   className="col-span-3"
                   min="1900"
@@ -218,7 +218,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
                 <Input
                   id="image"
                   name="image"
-                  value={carData.image}
+                  value={formData.image}
                   onChange={handleInputChange}
                   className="col-span-3"
                   placeholder="https://esempio.com/immagine.jpg"
@@ -234,7 +234,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
                 <Input
                   id="engine"
                   name="engine"
-                  value={carData.engine}
+                  value={formData.engine}
                   onChange={handleInputChange}
                   className="col-span-3"
                   placeholder="es. V8 4.0L"
@@ -247,7 +247,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
                 <Input
                   id="power"
                   name="power"
-                  value={carData.power}
+                  value={formData.power}
                   onChange={handleInputChange}
                   className="col-span-3"
                   placeholder="es. 450 CV"
@@ -260,7 +260,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
                 <select
                   id="transmission"
                   name="transmission"
-                  value={carData.transmission}
+                  value={formData.transmission}
                   onChange={handleInputChange}
                   className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
                 >
@@ -278,7 +278,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
                 <select
                   id="drivetrain"
                   name="drivetrain"
-                  value={carData.drivetrain}
+                  value={formData.drivetrain}
                   onChange={handleInputChange}
                   className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
                 >
@@ -296,7 +296,7 @@ const AddCarModal = ({ isOpen, onClose, onCarAdded }: AddCarModalProps) => {
                 <Textarea
                   id="description"
                   name="description"
-                  value={carData.description}
+                  value={formData.description}
                   onChange={handleInputChange}
                   className="col-span-3"
                   rows={3}
