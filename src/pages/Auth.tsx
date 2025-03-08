@@ -76,7 +76,7 @@ const Auth = () => {
     
     try {
       await signIn(loginData.email, loginData.password);
-      // Il redirect viene gestito all'interno di signIn
+      // Non facciamo navigate qui, lo fa la funzione signIn
     } catch (error: any) {
       console.error("Errore durante il login:", error);
       setLoginError(error.message || 'Errore durante l\'accesso. Riprova più tardi.');
@@ -131,7 +131,7 @@ const Auth = () => {
     setIsSubmitting(true);
     try {
       await signUp(registerData.email, registerData.password, registerData.name);
-      // Il redirect viene gestito all'interno di signUp
+      // Non facciamo navigate qui, lo fa la funzione signUp
     } catch (error: any) {
       console.error("Errore durante la registrazione:", error);
       setRegistrationError(error.message || 'Errore durante la registrazione. Riprova più tardi.');
@@ -140,6 +140,8 @@ const Auth = () => {
     }
   };
   
+  // Mostra il loader solo durante il caricamento iniziale,
+  // non quando l'utente sta effettuando il login/registrazione
   if (authLoading && !isSubmitting) {
     return (
       <div className="container mx-auto px-4 py-12 flex justify-center items-center min-h-[80vh]">

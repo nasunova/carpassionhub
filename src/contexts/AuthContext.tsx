@@ -112,10 +112,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     try {
-      setLoading(true);
-      const { error } = await supabase!.auth.signInWithPassword({ email, password });
+      // Impostiamo loading a true solo qui, non nel contesto globale
+      // per evitare di bloccare l'interfaccia
+      const { error, data } = await supabase!.auth.signInWithPassword({ email, password });
       
       if (error) throw error;
+      
+      // Verifichiamo che l'utente sia effettivamente loggato
+      if (!data?.user) {
+        throw new Error("Login fallito. Nessun utente restituito.");
+      }
       
       toast({
         title: "Login effettuato",
@@ -138,8 +144,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -154,8 +158,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     try {
-      setLoading(true);
-      
       // Controlla che la password sia valida
       if (password.length < 6) {
         throw new Error("La password deve contenere almeno 6 caratteri.");
@@ -224,8 +226,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -291,10 +291,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { ...prevUser, ...updateData };
       });
       
-      console.log("Profilo aggiornato con successo:", updateData);
+      toast({
+        title: "Profilo aggiornato",
+        description: "Il tuo profilo è stato aggiornato con successo.",
+      });
       
     } catch (error: any) {
       console.error("Errore nell'aggiornamento del profilo:", error);
+      toast({
+        title: "Errore",
+        description: error.message || "Si è verificato un errore durante l'aggiornamento del profilo.",
+        variant: "destructive",
+      });
       throw error;
     } finally {
       setLoading(false);
