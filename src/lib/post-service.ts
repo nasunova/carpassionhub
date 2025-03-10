@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -21,13 +22,19 @@ export interface NewPost {
   carId?: string;
 }
 
+// Define a new interface for the media upload result
+export interface MediaUploadResult {
+  url: string;
+  path: string;
+}
+
 async function ensurePostsBucket() {
   // The bucket should be created from Supabase dashboard instead
   console.info('Checking if posts bucket exists...');
   return true; // Skip bucket creation as it should be done manually
 }
 
-export async function uploadPostMedia(file: File): Promise<string> {
+export async function uploadPostMedia(file: File): Promise<MediaUploadResult> {
   const fileExt = file.name.split('.').pop();
   const mediaPath = `${uuidv4()}.${fileExt}`;
   
