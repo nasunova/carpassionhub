@@ -1,54 +1,69 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import PostCard, { Post } from "@/components/PostCard";
 import CreatePostModal from "@/components/CreatePostModal";
-
-// Dati di esempio per i post
-const SAMPLE_POSTS: Post[] = [
-  {
-    id: "1",
-    userId: "1",
-    mediaUrl: "https://images.unsplash.com/photo-1583267746897-2cf4865e0992",
-    mediaType: "image",
-    description: "Una bellissima giornata in pista con la mia Giulia Quadrifoglio!",
-    location: "Autodromo di Monza",
-    carId: "car1",
-    carDetails: {
-      make: "Alfa Romeo",
-      model: "Giulia Quadrifoglio"
-    },
-    likes: 42,
-    comments: 5,
-    createdAt: new Date().toISOString(),
-    user: {
-      name: "Marco Rossi",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Marco"
-    }
-  },
-  {
-    id: "2",
-    userId: "2",
-    mediaUrl: "https://images.unsplash.com/photo-1503376780353-7e6692767b70",
-    mediaType: "image",
-    description: "Tramonto perfetto con la mia nuova auto",
-    location: "Strada della Forra",
-    likes: 28,
-    comments: 3,
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    user: {
-      name: "Laura Bianchi",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Laura"
-    }
-  }
-];
+import { fetchPosts } from "@/lib/post-service";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 
 const Home = () => {
-  const [posts, setPosts] = useState<Post[]>(SAMPLE_POSTS);
+  const { toast } = useToast();
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      if (!supabase) return;
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    };
+    
+    getCurrentUser();
+  }, []);
+
+  const { 
+    data: posts, 
+    isLoading, 
+    isError, 
+    refetch 
+  } = useQuery({
+    queryKey: ['posts'],
+    queryFn: fetchPosts,
+    staleTime: 60000, // 1 minuto
+  });
 
   const handlePostCreated = () => {
-    // TODO: Fetch updated posts from Supabase
+    // Ricarica i post dopo la creazione di un nuovo post
+    refetch();
+    toast({
+      title: "Post pubblicato",
+      description: "Il tuo post è visibile nella home",
+    });
   };
+
+  if (isError) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-racing-red">Errore di caricamento</h2>
+          <p className="mt-2 text-muted-foreground">
+            Si è verificato un errore durante il caricamento dei post.
+          </p>
+          <button 
+            onClick={() => refetch()} 
+            className="mt-4 px-4 py-2 bg-racing-red text-white rounded-md hover:bg-racing-red/90"
+          >
+            Riprova
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -57,18 +72,31 @@ const Home = () => {
         <CreatePostModal onPostCreated={handlePostCreated} />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {posts.map((post, index) => (
-          <motion.div
-            key={post.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.1 }}
-          >
-            <PostCard post={post} />
-          </motion.div>
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="w-10 h-10 animate-spin text-racing-red" />
+        </div>
+      ) : posts && posts.length > 0 ? (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {posts.map((post, index) => (
+            <motion.div
+              key={post.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: index * 0.1 }}
+            >
+              <PostCard post={post} currentUserId={userId} />
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-20">
+          <h2 className="text-2xl font-bold">Nessun post trovato</h2>
+          <p className="mt-2 text-muted-foreground">
+            Inizia a pubblicare o segui altri utenti per vedere i loro post.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

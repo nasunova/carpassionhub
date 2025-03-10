@@ -1,11 +1,15 @@
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Image, Video, MapPin, Car, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createPost, NewPost } from "@/lib/post-service";
+import { supabase } from "@/lib/supabase";
+import { useNavigate } from "react-router-dom";
 
 interface CreatePostModalProps {
   onPostCreated?: () => void;
@@ -18,8 +22,39 @@ const CreatePostModal = ({ onPostCreated }: CreatePostModalProps) => {
   const [selectedCar, setSelectedCar] = useState<string | null>(null);
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>("");
+  const [userAvatar, setUserAvatar] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Recupera i dati dell'utente corrente
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      if (!supabase) return;
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        setUserId(user.id);
+        
+        // Ottieni i dati del profilo
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', user.id)
+          .single();
+          
+        if (profileData) {
+          setUserName(profileData.full_name || user.email?.split('@')[0] || 'Utente');
+          setUserAvatar(profileData.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random`);
+        }
+      }
+    };
+    
+    getCurrentUser();
+  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,20 +81,41 @@ const CreatePostModal = ({ onPostCreated }: CreatePostModalProps) => {
       return;
     }
 
+    if (!userId) {
+      toast({
+        title: "Accesso richiesto",
+        description: "Devi effettuare l'accesso per creare un post",
+        variant: "destructive",
+      });
+      navigate("/auth");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // TODO: Implement post creation logic with Supabase
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Placeholder
+      const newPost: NewPost = {
+        description,
+        location: location || undefined,
+        carId: selectedCar || undefined,
+        mediaFile
+      };
       
-      toast({
-        title: "Post creato",
-        description: "Il tuo post è stato pubblicato con successo",
-      });
+      const result = await createPost(newPost, userId, userName, userAvatar);
       
-      setIsOpen(false);
-      onPostCreated?.();
+      if (result) {
+        toast({
+          title: "Post creato",
+          description: "Il tuo post è stato pubblicato con successo",
+        });
+        
+        setIsOpen(false);
+        if (onPostCreated) onPostCreated();
+      } else {
+        throw new Error("Errore durante la creazione del post");
+      }
     } catch (error) {
+      console.error("Errore creazione post:", error);
       toast({
         title: "Errore",
         description: "Si è verificato un errore durante la creazione del post",
@@ -169,22 +225,13 @@ const CreatePostModal = ({ onPostCreated }: CreatePostModalProps) => {
           </div>
 
           <div className="flex gap-4">
-            <Button
-              variant="outline"
-              className="flex-1 gap-2"
-              onClick={() => {/* TODO: Implement location picker */}}
-            >
-              <MapPin className="w-4 h-4" />
-              {location || "Aggiungi luogo"}
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1 gap-2"
-              onClick={() => {/* TODO: Implement car selector */}}
-            >
-              <Car className="w-4 h-4" />
-              {selectedCar || "Collega auto"}
-            </Button>
+            <Input
+              placeholder="Aggiungi luogo"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="flex-1"
+              icon={<MapPin className="w-4 h-4" />}
+            />
           </div>
         </div>
 
