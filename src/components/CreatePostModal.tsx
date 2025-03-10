@@ -1,15 +1,14 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Image, Video, MapPin, Car, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPost, NewPost } from "@/lib/post-service";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
+import { InputWithIcon } from "./ui/input-with-icon";
 
 interface CreatePostModalProps {
   onPostCreated?: () => void;
@@ -225,7 +224,7 @@ const CreatePostModal = ({ onPostCreated }: CreatePostModalProps) => {
           </div>
 
           <div className="flex gap-4">
-            <Input
+            <InputWithIcon
               placeholder="Aggiungi luogo"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
