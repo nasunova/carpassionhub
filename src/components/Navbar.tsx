@@ -11,6 +11,7 @@ import {
   X,
   LogIn,
   LogOut,
+  Home
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,6 +34,7 @@ const Navbar = () => {
   }, []);
 
   const navLinks = [
+    { name: "Home", path: "/home", icon: Home },
     { name: "Garage", path: "/garage", icon: Car },
     { name: "Eventi", path: "/events", icon: Calendar },
     { name: "Strade", path: "/roads", icon: Map },
