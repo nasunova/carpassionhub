@@ -5,51 +5,54 @@ import { Button } from "@/components/ui/button";
 import { Heart, MessageSquare, MapPin, Car } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { toggleLikePost, checkUserLikedPost } from "@/lib/post-service";
+import { hasUserLikedPost, likePost, unlikePost, getPostLikesCount } from "@/lib/post-service";
 import { useToast } from "@/hooks/use-toast";
 
-export interface Post {
-  id: string;
+interface PostProps {
+  id: number;
   userId: string;
-  mediaUrl: string;
-  mediaType: "image" | "video";
   description: string;
+  mediaUrl: string;
   location?: string;
   carId?: string;
+  createdAt: Date;
+  userName: string;
+  userAvatar: string;
+  isVideo: boolean;
   carDetails?: {
     make: string;
     model: string;
   };
-  likes: number;
-  comments: number;
-  createdAt: string;
-  user: {
-    name: string;
-    avatar: string;
-  };
 }
 
 interface PostCardProps {
-  post: Post;
-  currentUserId: string | null;
+  post: PostProps;
 }
 
-const PostCard = ({ post, currentUserId }: PostCardProps) => {
+const PostCard = ({ post }: PostCardProps) => {
   const [liked, setLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(post.likes);
+  const [likesCount, setLikesCount] = useState(0);
   const [isLikeLoading, setIsLikeLoading] = useState(false);
   const { toast } = useToast();
+  const currentUserId = null; // We'll need to implement proper auth integration later
 
-  // Controlla se l'utente ha già messo like al post
+  // Check if user has already liked the post
   useEffect(() => {
-    if (currentUserId) {
-      const checkLiked = async () => {
-        const isLiked = await checkUserLikedPost(post.id, currentUserId);
-        setLiked(isLiked);
-      };
-      
-      checkLiked();
-    }
+    const checkLiked = async () => {
+      if (currentUserId) {
+        try {
+          const isLiked = await hasUserLikedPost(post.id, currentUserId);
+          setLiked(isLiked);
+          
+          const count = await getPostLikesCount(post.id);
+          setLikesCount(count);
+        } catch (error) {
+          console.error("Error checking like status:", error);
+        }
+      }
+    };
+    
+    checkLiked();
   }, [post.id, currentUserId]);
 
   const handleLike = async () => {
@@ -64,7 +67,12 @@ const PostCard = ({ post, currentUserId }: PostCardProps) => {
     setIsLikeLoading(true);
     
     try {
-      const success = await toggleLikePost(post.id, currentUserId);
+      let success;
+      if (liked) {
+        success = await unlikePost(post.id, currentUserId);
+      } else {
+        success = await likePost(post.id, currentUserId);
+      }
       
       if (success) {
         const newLiked = !liked;
@@ -86,7 +94,7 @@ const PostCard = ({ post, currentUserId }: PostCardProps) => {
   return (
     <BlurredCard variant="interactive" className="overflow-hidden">
       <div className="relative">
-        {post.mediaType === "image" ? (
+        {!post.isVideo ? (
           <img
             src={post.mediaUrl}
             alt={post.description}
@@ -104,12 +112,12 @@ const PostCard = ({ post, currentUserId }: PostCardProps) => {
       <div className="p-4">
         <div className="flex items-center gap-3 mb-3">
           <img
-            src={post.user.avatar}
-            alt={post.user.name}
+            src={post.userAvatar}
+            alt={post.userName}
             className="w-10 h-10 rounded-full object-cover"
           />
           <div>
-            <h3 className="font-semibold">{post.user.name}</h3>
+            <h3 className="font-semibold">{post.userName}</h3>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               {post.location && (
                 <span className="flex items-center gap-1">
@@ -150,11 +158,11 @@ const PostCard = ({ post, currentUserId }: PostCardProps) => {
             </motion.button>
             <button className="flex items-center gap-1 text-sm">
               <MessageSquare className="w-5 h-5" />
-              {post.comments}
+              {0} {/* Placeholder for comments count */}
             </button>
           </div>
           <span className="text-sm text-muted-foreground">
-            {new Date(post.createdAt).toLocaleDateString()}
+            {post.createdAt.toLocaleDateString()}
           </span>
         </div>
       </div>
