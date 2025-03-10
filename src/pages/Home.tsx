@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { getPosts } from "@/lib/post-service";
 import { Container } from "@/components/ui/container";
