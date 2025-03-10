@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,6 +18,7 @@ const Roads = lazy(() => import("./pages/Roads"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const Home = lazy(() => import("./pages/Home"));
 
 const queryClient = new QueryClient();
 
@@ -76,7 +76,7 @@ const App = () => {
                       transition={{ duration: 0.3 }}
                     >
                       <Routes>
-                        <Route path="/" element={<Index />} />
+                        <Route path="/" element={<Home />} />
                         <Route path="/garage" element={<Garage />} />
                         <Route path="/events" element={<Events />} />
                         <Route path="/roads" element={<Roads />} />
