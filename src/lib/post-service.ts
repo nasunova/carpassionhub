@@ -1,278 +1,204 @@
 
-import { supabase, isSupabaseAvailable, createPublicBucket } from './supabase';
-import { Post } from '@/components/PostCard';
+import { supabase } from "@/lib/supabase";
+import { v4 as uuidv4 } from "uuid";
 
-export type NewPost = {
+export interface NewPost {
   description: string;
   location?: string;
   carId?: string;
   mediaFile: File;
-};
+}
 
-// Nome del bucket Supabase per i file multimediali dei post
-const POSTS_BUCKET = 'posts';
-
-// Assicurati che il bucket esista
+// Ensure posts bucket exists
 export const ensurePostsBucket = async () => {
-  if (!isSupabaseAvailable() || !supabase) return false;
-  return await createPublicBucket(POSTS_BUCKET);
+  try {
+    // Check if bucket exists first to avoid errors
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(bucket => bucket.name === 'posts');
+    
+    if (!bucketExists) {
+      console.log("Creating posts bucket...");
+      const { error } = await supabase.storage.createBucket('posts', {
+        public: true,
+        allowedMimeTypes: ['image/*', 'video/*'],
+        fileSizeLimit: 50000000 // 50MB
+      });
+      
+      if (error) {
+        console.error("Error creating posts bucket:", error);
+        // Continue anyway, as the bucket might exist but we don't have permission to create it
+      }
+    }
+  } catch (error) {
+    console.error("Error checking posts bucket:", error);
+    // Continue anyway, bucket might exist already
+  }
 };
 
-// Carica file multimediale (immagine o video) su Supabase Storage
-export const uploadPostMedia = async (file: File, userId: string): Promise<string | null> => {
-  if (!isSupabaseAvailable() || !supabase) return null;
+// Upload media file and return the URL
+export const uploadPostMedia = async (file: File) => {
+  await ensurePostsBucket();
+  
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${uuidv4()}.${fileExt}`;
+  const filePath = `${fileName}`;
   
   try {
-    await ensurePostsBucket();
-    
-    // Crea un nome file unico basato su timestamp e ID utente
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${userId}/${Date.now()}.${fileExt}`;
-    
-    // Carica il file nel bucket 'posts'
-    const { data, error } = await supabase.storage
-      .from(POSTS_BUCKET)
-      .upload(fileName, file, {
+    // Upload the file to Supabase Storage
+    const { error: uploadError, data } = await supabase.storage
+      .from('posts')
+      .upload(filePath, file, {
         cacheControl: '3600',
         upsert: false
       });
     
-    if (error) {
-      console.error('Errore caricamento media:', error);
-      return null;
+    if (uploadError) {
+      console.error("Errore caricamento media:", uploadError);
+      throw new Error("Impossibile caricare il file multimediale");
     }
     
-    // Ottieni URL pubblico del file
+    // Get the public URL
     const { data: { publicUrl } } = supabase.storage
-      .from(POSTS_BUCKET)
-      .getPublicUrl(fileName);
+      .from('posts')
+      .getPublicUrl(filePath);
     
-    return publicUrl;
+    return { url: publicUrl, path: filePath };
   } catch (error) {
-    console.error('Errore caricamento media:', error);
-    return null;
+    console.error("Errore caricamento media:", error);
+    throw new Error("Impossibile caricare il file multimediale");
   }
 };
 
-// Crea un nuovo post nel database
+// Create a new post
 export const createPost = async (
-  post: NewPost, 
+  newPost: NewPost, 
   userId: string, 
-  username: string, 
+  userName: string, 
   userAvatar: string
-): Promise<Post | null> => {
-  if (!isSupabaseAvailable() || !supabase) return null;
-  
+) => {
   try {
-    // Carica prima il file multimediale
-    const mediaUrl = await uploadPostMedia(post.mediaFile, userId);
+    // Try to upload the media file
+    let mediaUrl;
+    let mediaPath;
     
-    if (!mediaUrl) {
-      throw new Error('Impossibile caricare il file multimediale');
+    try {
+      const mediaResult = await uploadPostMedia(newPost.mediaFile);
+      mediaUrl = mediaResult.url;
+      mediaPath = mediaResult.path;
+    } catch (error) {
+      console.error("Errore creazione post:", error);
+      throw new Error("Impossibile caricare il file multimediale");
     }
     
-    // Determina il tipo di media
-    const mediaType: 'image' | 'video' = post.mediaFile.type.startsWith('image/') 
-      ? 'image' 
-      : 'video';
+    // Determine if it's an image or video
+    const isVideo = newPost.mediaFile.type.startsWith('video/');
     
-    // Ottieni dettagli auto se carId è fornito
-    let carDetails = undefined;
-    if (post.carId) {
-      const { data: carData } = await supabase
-        .from('cars')
-        .select('make, model')
-        .eq('id', post.carId)
-        .single();
-        
-      if (carData) {
-        carDetails = {
-          make: carData.make,
-          model: carData.model
-        };
-      }
-    }
-    
-    // Inserisci il post nel database
+    // Create the post in the database
     const { data, error } = await supabase
       .from('posts')
-      .insert({
-        user_id: userId,
-        media_url: mediaUrl,
-        media_type: mediaType,
-        description: post.description,
-        location: post.location || null,
-        car_id: post.carId || null,
-        likes_count: 0,
-        comments_count: 0
-      })
-      .select()
+      .insert([
+        {
+          user_id: userId,
+          description: newPost.description,
+          location: newPost.location,
+          car_id: newPost.carId,
+          media_url: mediaUrl,
+          media_path: mediaPath,
+          is_video: isVideo,
+          user_name: userName,
+          user_avatar: userAvatar
+        }
+      ])
+      .select('*')
       .single();
     
     if (error) {
-      console.error('Errore creazione post:', error);
-      return null;
+      console.error("Errore inserimento post nel database:", error);
+      throw new Error("Impossibile salvare il post nel database");
     }
     
-    // Formatta e restituisci il post creato
-    return {
-      id: data.id,
-      userId: data.user_id,
-      mediaUrl: data.media_url,
-      mediaType: data.media_type,
-      description: data.description,
-      location: data.location || undefined,
-      carId: data.car_id || undefined,
-      carDetails,
-      likes: data.likes_count,
-      comments: data.comments_count,
-      createdAt: data.created_at,
-      user: {
-        name: username,
-        avatar: userAvatar
-      }
-    };
+    return data;
   } catch (error) {
-    console.error('Errore creazione post:', error);
+    console.error("Errore creazione post:", error);
     return null;
   }
 };
 
-// Recupera tutti i post ordinati per data di creazione
-export const fetchPosts = async (): Promise<Post[]> => {
-  if (!isSupabaseAvailable() || !supabase) return [];
+// Get all posts
+export const getPosts = async () => {
+  const { data, error } = await supabase
+    .from('posts')
+    .select('*')
+    .order('created_at', { ascending: false });
   
-  try {
-    // Recupera i post con join alla tabella profiles
-    const { data, error } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        profiles:user_id (
-          full_name,
-          avatar_url
-        ),
-        cars:car_id (
-          make,
-          model
-        )
-      `)
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('Errore recupero post:', error);
-      return [];
-    }
-    
-    // Trasforma i dati nel formato richiesto
-    return data.map(post => ({
-      id: post.id,
-      userId: post.user_id,
-      mediaUrl: post.media_url,
-      mediaType: post.media_type,
-      description: post.description,
-      location: post.location || undefined,
-      carId: post.car_id || undefined,
-      carDetails: post.cars ? {
-        make: post.cars.make,
-        model: post.cars.model
-      } : undefined,
-      likes: post.likes_count,
-      comments: post.comments_count,
-      createdAt: post.created_at,
-      user: {
-        name: post.profiles?.full_name || 'Utente sconosciuto',
-        avatar: post.profiles?.avatar_url || `https://ui-avatars.com/api/?name=Unknown&background=random`
-      }
-    }));
-  } catch (error) {
-    console.error('Errore recupero post:', error);
+  if (error) {
+    console.error("Errore recupero post:", error);
     return [];
   }
+  
+  return data;
 };
 
-// Mette mi piace o rimuove mi piace a un post
-export const toggleLikePost = async (postId: string, userId: string): Promise<boolean> => {
-  if (!isSupabaseAvailable() || !supabase) return false;
-  
-  try {
-    // Controlla se l'utente ha già messo like al post
-    const { data: likes, error: checkError } = await supabase
-      .from('post_likes')
-      .select('*')
-      .eq('post_id', postId)
-      .eq('user_id', userId);
-    
-    if (checkError) {
-      console.error('Errore controllo like:', checkError);
-      return false;
-    }
-    
-    // Se il like esiste già, rimuovilo
-    if (likes && likes.length > 0) {
-      const { error: unlikeError } = await supabase
-        .from('post_likes')
-        .delete()
-        .eq('post_id', postId)
-        .eq('user_id', userId);
-      
-      if (unlikeError) {
-        console.error('Errore rimozione like:', unlikeError);
-        return false;
+// Like a post
+export const likePost = async (postId: number, userId: string) => {
+  const { data, error } = await supabase
+    .from('post_likes')
+    .insert([
+      {
+        post_id: postId,
+        user_id: userId
       }
-      
-      // Decrementa il contatore dei like
-      await supabase
-        .from('posts')
-        .update({ likes_count: supabase.rpc('decrement', { x: 1 }) })
-        .eq('id', postId);
-      
-      return true;
-    } 
-    
-    // Altrimenti, aggiungi il like
-    const { error: likeError } = await supabase
-      .from('post_likes')
-      .insert({ post_id: postId, user_id: userId });
-    
-    if (likeError) {
-      console.error('Errore aggiunta like:', likeError);
-      return false;
-    }
-    
-    // Incrementa il contatore dei like
-    await supabase
-      .from('posts')
-      .update({ likes_count: supabase.rpc('increment', { x: 1 }) })
-      .eq('id', postId);
-    
-    return true;
-  } catch (error) {
-    console.error('Errore gestione like:', error);
+    ]);
+  
+  if (error) {
+    console.error("Errore like post:", error);
     return false;
   }
+  
+  return true;
 };
 
-// Controlla se l'utente corrente ha messo like a un post
-export const checkUserLikedPost = async (postId: string, userId: string): Promise<boolean> => {
-  if (!isSupabaseAvailable() || !supabase) return false;
+// Unlike a post
+export const unlikePost = async (postId: number, userId: string) => {
+  const { error } = await supabase
+    .from('post_likes')
+    .delete()
+    .match({ post_id: postId, user_id: userId });
   
-  try {
-    const { data, error } = await supabase
-      .from('post_likes')
-      .select('*')
-      .eq('post_id', postId)
-      .eq('user_id', userId)
-      .maybeSingle();
-    
-    if (error) {
-      console.error('Errore controllo like utente:', error);
-      return false;
-    }
-    
-    return !!data;
-  } catch (error) {
-    console.error('Errore controllo like utente:', error);
+  if (error) {
+    console.error("Errore unlike post:", error);
     return false;
   }
+  
+  return true;
+};
+
+// Check if user liked a post
+export const hasUserLikedPost = async (postId: number, userId: string) => {
+  const { data, error } = await supabase
+    .from('post_likes')
+    .select('*')
+    .match({ post_id: postId, user_id: userId });
+  
+  if (error) {
+    console.error("Errore verifica like:", error);
+    return false;
+  }
+  
+  return data.length > 0;
+};
+
+// Get post likes count
+export const getPostLikesCount = async (postId: number) => {
+  const { count, error } = await supabase
+    .from('post_likes')
+    .select('*', { count: 'exact' })
+    .eq('post_id', postId);
+  
+  if (error) {
+    console.error("Errore conteggio like:", error);
+    return 0;
+  }
+  
+  return count || 0;
 };
