@@ -17,7 +17,7 @@ type AuthContextType = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (data: Partial<UserProfile>) => Promise<void>;
+  updateProfile: (data: Partial<UserProfile>) => Promise<boolean>; // Changed from Promise<void> to Promise<boolean>
   updateAvatar: (url: string) => Promise<void>;
 };
 
@@ -353,7 +353,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Update profile function
   const updateProfile = async (data: Partial<UserProfile>) => {
-    if (!isSupabaseAvailable() || !user) return;
+    if (!isSupabaseAvailable() || !user) return false; // Return false instead of undefined
 
     try {
       setLoading(true);
