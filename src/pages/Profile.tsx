@@ -246,8 +246,6 @@ const Profile: React.FC<ProfileProps> = () => {
         description: 'Le modifiche al profilo sono state salvate.',
       });
       
-      setEditing(false);
-      
       // Update local state
       setProfileData(prev => ({
         ...prev,
@@ -255,6 +253,9 @@ const Profile: React.FC<ProfileProps> = () => {
         location: formData.location,
         bio: formData.bio
       }));
+      
+      // Exit edit mode
+      setEditing(false);
     } catch (error: any) {
       console.error('Error updating profile:', error);
       toast({
@@ -263,6 +264,7 @@ const Profile: React.FC<ProfileProps> = () => {
         variant: 'destructive',
       });
     } finally {
+      // Make sure loading state is reset
       setLoading(false);
     }
   };
@@ -473,7 +475,10 @@ const Profile: React.FC<ProfileProps> = () => {
                   <div className="flex justify-end space-x-2 pt-4">
                     <Button 
                       variant="outline" 
-                      onClick={() => setEditing(false)}
+                      onClick={() => {
+                        setEditing(false);
+                        setLoading(false); // Also ensure loading is reset when cancelling
+                      }}
                       disabled={loading}
                     >
                       Annulla

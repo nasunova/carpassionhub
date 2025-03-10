@@ -384,14 +384,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         title: "Profilo aggiornato",
         description: "Le modifiche al profilo sono state salvate.",
       });
+      
+      return true; // Add a return value to indicate success
     } catch (error: any) {
       toast({
         title: "Errore",
         description: error.message || "Si è verificato un errore durante l'aggiornamento del profilo.",
         variant: "destructive",
       });
+      
+      return false; // Add a return value to indicate failure
     } finally {
-      setLoading(false);
+      setLoading(false); // Make sure loading state is reset
     }
   };
 
