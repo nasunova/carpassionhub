@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -76,7 +77,8 @@ const App = () => {
                       transition={{ duration: 0.3 }}
                     >
                       <Routes>
-                        <Route path="/" element={<Home />} />
+                        <Route path="/" element={<Index />} />
+                        <Route path="/home" element={<Home />} />
                         <Route path="/garage" element={<Garage />} />
                         <Route path="/events" element={<Events />} />
                         <Route path="/roads" element={<Roads />} />
